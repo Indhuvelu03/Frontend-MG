@@ -294,7 +294,8 @@ export default function App() {
         return data.message || 'Invalid email or password. Please check your credentials.';
       }
     } catch (err) {
-      return 'Unable to connect to backend server. Please try again.';
+      console.error('Login error:', err);
+      return `Unable to connect to backend (${err.message || 'NetworkError'}). Target: ${API_BASE}/auth/login`;
     }
   };
 
