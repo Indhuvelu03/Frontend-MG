@@ -329,13 +329,11 @@ export default function App() {
           body: JSON.stringify(custForm)
         });
         const data = await res.json();
-        if (data.success && data.data) {
-          setCustomers(prev => prev.map(c => (c._id === cId || c.id === cId) ? data.data : c));
-        } else {
-          setCustomers(prev => prev.map(c => (c._id === cId || c.id === cId) ? { ...c, ...custForm } : c));
-        }
-      } catch {
-        setCustomers(prev => prev.map(c => (c._id === cId || c.id === cId) ? { ...c, ...custForm } : c));
+        if (!data.success || !data.data) throw new Error(data.message || 'Customer update failed');
+        setCustomers(prev => prev.map(c => (c._id === cId || c.id === cId) ? data.data : c));
+      } catch (error) {
+        showSnackbar(`Unable to save customer changes: ${error.message}`, 'error');
+        return;
       }
       addLog({ action: 'CUSTOMER_UPDATED', target: `${custForm.name} (${custForm.vehicleNumber})`, badgeClass: 'badge-blue', badgeText: 'UPDATED', description: `Updated customer record for ${custForm.name}.` });
       showSnackbar(`✅ Customer record for ${custName} updated successfully!`, 'info');

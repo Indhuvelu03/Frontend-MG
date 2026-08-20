@@ -124,8 +124,8 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
       fileToSend = uploadedFile;
     }
 
-    if (!fileToSend) {
-      setErrorMessage('Please record your voice or select an audio file to submit.');
+    if (!fileToSend && notes.trim().length < 10) {
+      setErrorMessage('Please provide a short written feedback or a voice recording.');
       return;
     }
 
@@ -134,7 +134,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
     try {
       const formData = new FormData();
       formData.append('vehicleNumber', targetVehicle);
-      formData.append('audio', fileToSend);
+      if (fileToSend) formData.append('audio', fileToSend);
       if (notes.trim()) formData.append('feedbackText', notes.trim());
 
       const res = await fetch(`/api/public/feedback/${token}`, {
@@ -172,38 +172,41 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'var(--bg-page)',
+      background: 'linear-gradient(135deg, #eff6ff 0%, #f8fafc 48%, #ecfdf5 100%)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      padding: '2rem 1rem',
+      padding: '2.5rem 1rem',
       fontFamily: 'var(--font)',
     }}>
       <div style={{
         width: '100%',
-        maxWidth: '500px',
+        maxWidth: '580px',
         background: '#fff',
-        border: 'var(--border)',
-        boxShadow: 'var(--shadow-md)',
+        border: '1px solid #e2e8f0',
+        boxShadow: '0 24px 60px rgba(15, 23, 42, 0.12)',
+        borderRadius: '20px',
+        overflow: 'hidden',
       }}>
         {/* Header */}
         <div style={{
-          padding: '1.25rem 1.5rem',
-          background: 'var(--primary)',
+          padding: '1.5rem 1.75rem',
+          background: 'linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%)',
           color: '#fff',
           display: 'flex',
           alignItems: 'center',
           gap: '0.75rem',
         }}>
           <div style={{
-            width: '32px', height: '32px', background: '#fff', color: 'var(--primary)',
+            width: '40px', height: '40px', background: 'rgba(255,255,255,.15)', color: '#fff',
+            border: '1px solid rgba(255,255,255,.25)', borderRadius: '12px',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <ZapIcon size={16} />
           </div>
           <div>
-            <div style={{ fontWeight: 900, fontSize: '1.05rem', letterSpacing: '-0.02em' }}>AutoAudit AI</div>
-            <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Customer Feedback &amp; Voice Portal</div>
+            <div style={{ fontWeight: 900, fontSize: '1.15rem', letterSpacing: '-0.02em' }}>AutoAudit AI</div>
+            <div style={{ fontSize: '0.8rem', opacity: 0.82, marginTop: '0.15rem' }}>Secure service feedback portal</div>
           </div>
         </div>
 
@@ -253,14 +256,19 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
           </div>
         ) : (
           /* Form Screen */
-          <div style={{ padding: '1.5rem' }}>
+          <div style={{ padding: '1.75rem' }}>
+            <div style={{ marginBottom: '1.4rem' }}>
+              <div style={{ color: '#2563eb', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase' }}>Step 1 of 1 - Share feedback</div>
+              <h1 style={{ margin: '0.35rem 0 0.4rem', color: '#0f172a', fontSize: '1.55rem', letterSpacing: '-.04em' }}>Tell us how your service went</h1>
+              <p style={{ margin: 0, color: '#64748b', fontSize: '.9rem', lineHeight: 1.6 }}>Write your feedback, record a voice note, or use both. It takes less than two minutes.</p>
+            </div>
             {/* Vehicle Card */}
             <div style={{
-              background: 'var(--primary-soft)', border: 'var(--border)', padding: '1rem',
+              background: '#f8fafc', border: '1px solid #e2e8f0', padding: '1rem', borderRadius: '14px',
               marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.85rem',
             }}>
               <div style={{
-                width: '38px', height: '38px', background: '#fff', border: 'var(--border)',
+                width: '42px', height: '42px', background: '#dbeafe', border: '1px solid #bfdbfe', borderRadius: '12px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: 'var(--text-main)', flexShrink: 0,
               }}>
@@ -294,10 +302,11 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
 
             <form onSubmit={handleSubmit}>
               <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                <label className="form-label">Verify Vehicle Number</label>
+                <label className="form-label" style={{ color: '#334155', marginBottom: '.45rem' }}>Confirm your vehicle number</label>
                 <input
                   type="text"
                   className="form-input"
+                  style={{ borderRadius: '10px', padding: '.8rem .9rem', fontFamily: 'monospace', fontWeight: 700, letterSpacing: '.04em' }}
                   value={inputVehicleNumber}
                   onChange={e => setInputVehicleNumber(e.target.value.toUpperCase())}
                   placeholder="e.g. KA01AB1234"
@@ -305,7 +314,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
                 />
               </div>
 
-              <div style={{ marginBottom: '1.25rem' }}>
+              <div style={{ marginBottom: '1.25rem', padding: '1rem', background: '#fafafa', border: '1px solid #e2e8f0', borderRadius: '14px' }}>
                 <label className="form-label" style={{ marginBottom: '0.6rem' }}>
                   Voice feedback <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>(optional)</span>
                 </label>
@@ -316,7 +325,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
                     type="button"
                     className={`btn ${audioMode === 'record' ? 'btn-primary' : 'btn-secondary'}`}
                     onClick={() => setAudioMode('record')}
-                    style={{ fontSize: '0.8rem', padding: '0.5rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                    style={{ fontSize: '0.8rem', padding: '0.62rem', borderRadius: '9px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
                   >
                     <MicIcon size={14} /> Record Live
                   </button>
@@ -324,7 +333,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
                     type="button"
                     className={`btn ${audioMode === 'upload' ? 'btn-primary' : 'btn-secondary'}`}
                     onClick={() => setAudioMode('upload')}
-                    style={{ fontSize: '0.8rem', padding: '0.5rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                    style={{ fontSize: '0.8rem', padding: '0.62rem', borderRadius: '9px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
                   >
                     <FolderIcon size={14} /> Upload Audio File
                   </button>
@@ -333,7 +342,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
                 {/* MODE A: Live Microphone Recording */}
                 {audioMode === 'record' && (
                   <div style={{
-                    background: '#FAFAFA', border: 'var(--border)', padding: '1.5rem 1rem',
+                    background: '#fff', border: '1px dashed #93c5fd', borderRadius: '12px', padding: '1.5rem 1rem',
                     textAlign: 'center', display: 'flex', flexDirection: 'column',
                     alignItems: 'center', gap: '1rem',
                   }}>
@@ -395,7 +404,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
                 {/* MODE B: Upload MP3 File */}
                 {audioMode === 'upload' && (
                   <div style={{
-                    background: '#FAFAFA', border: 'var(--border)', padding: '1.5rem 1rem',
+                    background: '#fff', border: '1px dashed #93c5fd', borderRadius: '12px', padding: '1.5rem 1rem',
                     textAlign: 'center', display: 'flex', flexDirection: 'column',
                     alignItems: 'center', gap: '1rem',
                   }}>
@@ -450,12 +459,12 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
               </div>
 
               {/* Primary written feedback */}
-              <div className="form-group">
+              <div className="form-group" style={{ marginBottom: '1.35rem' }}>
                 <label className="form-label" htmlFor="public-notes">Describe your service feedback <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>(optional if voice is provided)</span></label>
                 <textarea
                   id="public-notes"
                   className="form-input"
-                  style={{ height: '70px', resize: 'vertical', fontFamily: 'var(--font)' }}
+                  style={{ height: '105px', resize: 'vertical', fontFamily: 'var(--font)', borderRadius: '10px', padding: '.8rem .9rem', lineHeight: 1.5 }}
                   placeholder="Example: Please inspect front brake noise, AC cooling, and engine oil level."
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
@@ -468,7 +477,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
               <button
                 type="submit"
                 className="btn btn-primary btn-full"
-                style={{ padding: '0.75rem', fontSize: '0.9rem' }}
+                style={{ padding: '0.9rem', fontSize: '0.95rem', borderRadius: '10px', boxShadow: '0 8px 18px rgba(37,99,235,.2)' }}
                 disabled={(!hasAudio && notes.trim().length < 10) || submitting}
               >
                 {submitting ? 'Submitting Feedback…' : 'Submit Feedback'}
