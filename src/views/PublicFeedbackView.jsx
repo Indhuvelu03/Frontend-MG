@@ -3,6 +3,7 @@ import { ZapIcon, MicIcon, CheckIcon, CarIcon, LockIcon, FolderIcon, AlertTriang
 
 export default function PublicFeedbackView({ token, customers = [], feedbackLinks = [] }) {
   const [audioMode, setAudioMode] = useState('record'); // 'record' | 'upload'
+  const [feedbackMode, setFeedbackMode] = useState('text'); // 'text' | 'audio' | 'both'
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
   const [recordedBlob, setRecordedBlob] = useState(null);
@@ -118,14 +119,16 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
     }
 
     let fileToSend = null;
-    if (audioMode === 'record' && recordedBlob) {
+    if ((feedbackMode === 'audio' || feedbackMode === 'both') && audioMode === 'record' && recordedBlob) {
       fileToSend = new File([recordedBlob], `complaint_${Date.now()}.mp3`, { type: 'audio/mp3' });
-    } else if (audioMode === 'upload' && uploadedFile) {
+    } else if ((feedbackMode === 'audio' || feedbackMode === 'both') && audioMode === 'upload' && uploadedFile) {
       fileToSend = uploadedFile;
     }
 
-    if (!fileToSend && notes.trim().length < 10) {
-      setErrorMessage('Please provide a short written feedback or a voice recording.');
+    const needsText = feedbackMode === 'text' || feedbackMode === 'both';
+    const needsAudio = feedbackMode === 'audio' || feedbackMode === 'both';
+    if ((needsText && notes.trim().length < 10) || (needsAudio && !fileToSend)) {
+      setErrorMessage(needsText && needsAudio ? 'Please provide both written feedback and a voice recording.' : needsText ? 'Please enter at least 10 characters of feedback.' : 'Please record or upload a voice note.');
       return;
     }
 
@@ -135,7 +138,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
       const formData = new FormData();
       formData.append('vehicleNumber', targetVehicle);
       if (fileToSend) formData.append('audio', fileToSend);
-      if (notes.trim()) formData.append('feedbackText', notes.trim());
+      if (needsText) formData.append('feedbackText', notes.trim());
 
       const res = await fetch(`/api/public/feedback/${token}`, {
         method: 'POST',
@@ -168,6 +171,11 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
   };
 
   const hasAudio = (audioMode === 'record' && recordedBlob) || (audioMode === 'upload' && uploadedFile);
+  const feedbackReady = feedbackMode === 'text'
+    ? notes.trim().length >= 10
+    : feedbackMode === 'audio'
+      ? hasAudio
+      : notes.trim().length >= 10 && hasAudio;
 
   return (
     <div style={{
@@ -176,7 +184,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      padding: '2.5rem 1rem',
+      padding: '1rem',
       fontFamily: 'var(--font)',
     }}>
       <div style={{
@@ -185,12 +193,12 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
         background: '#fff',
         border: '1px solid #e2e8f0',
         boxShadow: '0 24px 60px rgba(15, 23, 42, 0.12)',
-        borderRadius: '20px',
+        borderRadius: '16px',
         overflow: 'hidden',
       }}>
         {/* Header */}
         <div style={{
-          padding: '1.5rem 1.75rem',
+          padding: '1rem 1.25rem',
           background: 'linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%)',
           color: '#fff',
           display: 'flex',
@@ -256,16 +264,15 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
           </div>
         ) : (
           /* Form Screen */
-          <div style={{ padding: '1.75rem' }}>
-            <div style={{ marginBottom: '1.4rem' }}>
-              <div style={{ color: '#2563eb', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase' }}>Step 1 of 1 - Share feedback</div>
-              <h1 style={{ margin: '0.35rem 0 0.4rem', color: '#0f172a', fontSize: '1.55rem', letterSpacing: '-.04em' }}>Tell us how your service went</h1>
-              <p style={{ margin: 0, color: '#64748b', fontSize: '.9rem', lineHeight: 1.6 }}>Write your feedback, record a voice note, or use both. It takes less than two minutes.</p>
+          <div style={{ padding: '1.15rem 1.25rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
+              <h1 style={{ margin: '0 0 .25rem', color: '#0f172a', fontSize: '1.25rem', letterSpacing: '-.03em' }}>Share your feedback</h1>
+              <p style={{ margin: 0, color: '#64748b', fontSize: '.82rem' }}>Choose the feedback method that is easiest for you.</p>
             </div>
             {/* Vehicle Card */}
             <div style={{
               background: '#f8fafc', border: '1px solid #e2e8f0', padding: '1rem', borderRadius: '14px',
-              marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.85rem',
+              marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.7rem',
             }}>
               <div style={{
                 width: '42px', height: '42px', background: '#dbeafe', border: '1px solid #bfdbfe', borderRadius: '12px',
@@ -314,9 +321,26 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
                 />
               </div>
 
-              <div style={{ marginBottom: '1.25rem', padding: '1rem', background: '#fafafa', border: '1px solid #e2e8f0', borderRadius: '14px' }}>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label" style={{ color: '#334155', marginBottom: '.45rem' }}>How would you like to share feedback?</label>
+                <select
+                  className="form-select"
+                  value={feedbackMode}
+                  onChange={e => {
+                    setFeedbackMode(e.target.value);
+                    setErrorMessage('');
+                  }}
+                  style={{ borderRadius: '10px', padding: '.75rem .85rem' }}
+                >
+                  <option value="text">Write feedback</option>
+                  <option value="audio">Record or upload voice feedback</option>
+                  <option value="both">Write feedback + voice note</option>
+                </select>
+              </div>
+
+              {(feedbackMode === 'audio' || feedbackMode === 'both') && <div style={{ marginBottom: '1rem', padding: '.85rem', background: '#fafafa', border: '1px solid #e2e8f0', borderRadius: '12px' }}>
                 <label className="form-label" style={{ marginBottom: '0.6rem' }}>
-                  Voice feedback <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>(optional)</span>
+                  Voice feedback <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>(required)</span>
                 </label>
 
                 {/* Input Method Switcher Tabs */}
@@ -456,29 +480,29 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
                     )}
                   </div>
                 )}
-              </div>
+              </div>}
 
               {/* Primary written feedback */}
-              <div className="form-group" style={{ marginBottom: '1.35rem' }}>
-                <label className="form-label" htmlFor="public-notes">Describe your service feedback <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>(optional if voice is provided)</span></label>
+              {(feedbackMode === 'text' || feedbackMode === 'both') && <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label" htmlFor="public-notes">Describe your service feedback <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>(required)</span></label>
                 <textarea
                   id="public-notes"
                   className="form-input"
-                  style={{ height: '105px', resize: 'vertical', fontFamily: 'var(--font)', borderRadius: '10px', padding: '.8rem .9rem', lineHeight: 1.5 }}
+                  style={{ height: '82px', resize: 'vertical', fontFamily: 'var(--font)', borderRadius: '10px', padding: '.7rem .8rem', lineHeight: 1.5 }}
                   placeholder="Example: Please inspect front brake noise, AC cooling, and engine oil level."
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
                 />
                 <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
-                  Choose text, voice, or both. Please provide at least one feedback method.
+                  Please include the issue, repair request, or service experience.
                 </div>
-              </div>
+              </div>}
 
               <button
                 type="submit"
                 className="btn btn-primary btn-full"
                 style={{ padding: '0.9rem', fontSize: '0.95rem', borderRadius: '10px', boxShadow: '0 8px 18px rgba(37,99,235,.2)' }}
-                disabled={(!hasAudio && notes.trim().length < 10) || submitting}
+                disabled={!feedbackReady || submitting}
               >
                 {submitting ? 'Submitting Feedback…' : 'Submit Feedback'}
               </button>
