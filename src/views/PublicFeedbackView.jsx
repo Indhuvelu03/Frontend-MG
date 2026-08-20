@@ -135,7 +135,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
       const formData = new FormData();
       formData.append('vehicleNumber', targetVehicle);
       formData.append('audio', fileToSend);
-      if (notes) formData.append('notes', notes);
+      if (notes.trim()) formData.append('feedbackText', notes.trim());
 
       const res = await fetch(`/api/public/feedback/${token}`, {
         method: 'POST',
@@ -155,9 +155,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
         }
       }
     } catch {
-      // Offline / fallback submit for testing
-      setSubmitted(true);
-      setIsLinkDisabled(true);
+      setErrorMessage('Unable to submit feedback right now. Please check your connection and try again.');
     } finally {
       setSubmitting(false);
     }
@@ -243,7 +241,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
             </div>
             <h2 style={{ fontSize: '1.3rem', fontWeight: 900, color: 'var(--text-main)' }}>Feedback Submitted!</h2>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.5rem', lineHeight: 1.6 }}>
-              Thank you! Your voice complaint for vehicle <strong>{inputVehicleNumber || vehicleInfo.vehicleNumber}</strong> has been received and queued for AI transcription &amp; invoice auditing.
+              Thank you! Your feedback for vehicle <strong>{inputVehicleNumber || vehicleInfo.vehicleNumber}</strong> has been received {hasAudio ? 'and queued for voice transcription' : 'as written feedback'} for invoice auditing.
             </p>
             <div style={{
               marginTop: '1.25rem', padding: '0.75rem', background: 'var(--amber-bg)',
@@ -309,7 +307,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
 
               <div style={{ marginBottom: '1.25rem' }}>
                 <label className="form-label" style={{ marginBottom: '0.6rem' }}>
-                  Customer Voice Complaint Input Method
+                  Voice feedback <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>(optional)</span>
                 </label>
 
                 {/* Input Method Switcher Tabs */}
@@ -384,7 +382,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
                           <MicIcon size={22} />
                         </div>
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                          Tap button below to speak your repair requests &amp; complaints
+                          Optional: speak your repair requests or upload a voice note
                         </div>
                         <button type="button" className="btn btn-primary" onClick={startRecording}>
                           <MicIcon size={14} /> Start Voice Recording
@@ -451,26 +449,31 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
                 )}
               </div>
 
-              {/* Optional Text Notes */}
+              {/* Primary written feedback */}
               <div className="form-group">
-                <label className="form-label" htmlFor="public-notes">Additional Written Notes (Optional)</label>
+                <label className="form-label" htmlFor="public-notes">Describe your service feedback <span style={{ color: 'var(--coral)' }}>*</span></label>
                 <textarea
                   id="public-notes"
                   className="form-input"
                   style={{ height: '70px', resize: 'vertical', fontFamily: 'var(--font)' }}
-                  placeholder="Mention any specific repair requests, noise issues, or instructions..."
+                  placeholder="Example: Please inspect front brake noise, AC cooling, and engine oil level."
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
+                  minLength={10}
+                  required
                 />
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+                  Written feedback is required so your request is clear. Voice recording is optional.
+                </div>
               </div>
 
               <button
                 type="submit"
                 className="btn btn-primary btn-full"
                 style={{ padding: '0.75rem', fontSize: '0.9rem' }}
-                disabled={(!hasAudio && !notes) || submitting}
+                disabled={notes.trim().length < 10 || submitting}
               >
-                {submitting ? 'Uploading & Processing…' : 'Submit Feedback to AI Audit Engine'}
+                {submitting ? 'Submitting Feedback…' : 'Submit Feedback'}
               </button>
             </form>
           </div>

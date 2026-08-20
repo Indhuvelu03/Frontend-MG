@@ -47,13 +47,14 @@ export function CustomerModal({ onClose, custForm, setCustForm, onSubmit, servic
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Email Address</label>
+            <label className="form-label">Email Address <span style={{ color: 'var(--coral)' }}>*</span></label>
             <input
               type="email"
               className="form-input"
               value={custForm.email}
               onChange={e => setCustForm({ ...custForm, email: e.target.value })}
               placeholder="e.g. ramesh@example.com"
+              required
             />
           </div>
         </div>
@@ -87,6 +88,7 @@ export function CustomerModal({ onClose, custForm, setCustForm, onSubmit, servic
             className="form-select"
             value={custForm.serviceCenter || (serviceCenters[0]?.name || 'Downtown Branch')}
             onChange={e => setCustForm({ ...custForm, serviceCenter: e.target.value })}
+            required
           >
             {serviceCenters.map(s => (
               <option key={s.id} value={s.name}>

@@ -344,10 +344,11 @@ export default function App() {
       try {
         const res  = await fetch(`${API_BASE}/customers`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ ...custForm, serviceDate: new Date().toISOString() }) });
         const data = await res.json();
-        if (data.success) setCustomers([data.data, ...customers]);
-        else throw new Error();
-      } catch {
-        setCustomers([{ _id: 'c_' + Date.now(), ...custForm }, ...customers]);
+        if (!data.success) throw new Error(data.message || 'Customer registration failed');
+        setCustomers([data.data, ...customers]);
+      } catch (error) {
+        showSnackbar(`Unable to register customer: ${error.message}`, 'error');
+        return;
       }
       addLog({ action: 'CUSTOMER_CREATED', target: `${custForm.name} (${custForm.vehicleNumber})`, badgeClass: 'badge-green', badgeText: 'CREATED', description: `Registered new customer at ${custForm.serviceCenter}.` });
       showSnackbar(`📧 Customer ${custName} registered! Feedback link auto-generated & invite email dispatched to ${custEmail}.`, 'success');
