@@ -451,7 +451,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
 
               {/* Primary written feedback */}
               <div className="form-group">
-                <label className="form-label" htmlFor="public-notes">Describe your service feedback <span style={{ color: 'var(--coral)' }}>*</span></label>
+                <label className="form-label" htmlFor="public-notes">Describe your service feedback <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>(optional if voice is provided)</span></label>
                 <textarea
                   id="public-notes"
                   className="form-input"
@@ -459,11 +459,9 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
                   placeholder="Example: Please inspect front brake noise, AC cooling, and engine oil level."
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
-                  minLength={10}
-                  required
                 />
                 <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
-                  Written feedback is required so your request is clear. Voice recording is optional.
+                  Choose text, voice, or both. Please provide at least one feedback method.
                 </div>
               </div>
 
@@ -471,7 +469,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
                 type="submit"
                 className="btn btn-primary btn-full"
                 style={{ padding: '0.75rem', fontSize: '0.9rem' }}
-                disabled={notes.trim().length < 10 || submitting}
+                disabled={(!hasAudio && notes.trim().length < 10) || submitting}
               >
                 {submitting ? 'Submitting Feedback…' : 'Submit Feedback'}
               </button>
