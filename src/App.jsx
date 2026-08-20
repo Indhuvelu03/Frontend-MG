@@ -21,7 +21,8 @@ import PublicFeedbackView from './views/PublicFeedbackView';
 // Icons
 import { ZapIcon, ShieldIcon, UserIcon, MailIcon, InfoIcon, AlertTriangleIcon } from './components/Icons';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://backend-mg-mwgb.onrender.com/api';
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || 'https://backend-mg-mwgb.onrender.com/api';
+const API_BASE = rawApiBase.endsWith('/api') ? rawApiBase : `${rawApiBase.replace(/\/$/, '')}/api`;
 
 // ─── Seed / Demo Data ──────────────────────────────────────────────────────────
 const SEED = {
