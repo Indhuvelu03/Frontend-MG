@@ -21,7 +21,7 @@ import PublicFeedbackView from './views/PublicFeedbackView';
 // Icons
 import { ZapIcon, ShieldIcon, UserIcon, MailIcon, InfoIcon, AlertTriangleIcon } from './components/Icons';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://backend-mg-mwgb.onrender.com/api';
 
 // ─── Seed / Demo Data ──────────────────────────────────────────────────────────
 const SEED = {
