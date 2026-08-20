@@ -4,7 +4,7 @@ import './index.css';
 // Layout Components
 import Siderail from './components/Siderail';
 import TopHeader from './components/TopHeader';
-import { CustomerModal, LinkModal, InvoiceModal, ServiceCenterModal } from './components/Modals';
+import { CustomerModal, LinkModal, InvoiceModal, ServiceCenterModal, UserModal } from './components/Modals';
 
 
 // Page View Components
@@ -48,24 +48,17 @@ const SEED = {
 
 // ─── Login Screen ──────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }) {
-  const [email, setEmail]       = useState('admin@example.com');
-  const [password, setPassword] = useState('Admin@123456');
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading]   = useState(false);
-
-  const setRoleDemo = (role) => {
-    if (role === 'ADMIN') {
-      setEmail('admin@example.com');
-      setPassword('Admin@123456');
-    } else {
-      setEmail('staff@example.com');
-      setPassword('Staff@123456');
-    }
-  };
+  const [error, setError]       = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
-    await onLogin(email, password);
+    const err = await onLogin(email, password);
+    if (err) setError(err);
     setLoading(false);
   };
 
@@ -75,28 +68,26 @@ function LoginScreen({ onLogin }) {
         <div className="login-brand">
           <div className="login-logo"><ZapIcon size={20} /></div>
           <h1 className="login-title">AutoAudit AI</h1>
-          <p className="login-subtitle">Sign in to continue</p>
+          <p className="login-subtitle">Sign in to your account</p>
         </div>
 
-        {/* Quick Role Switcher Buttons */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1.25rem' }}>
-          <button
-            type="button"
-            className={`btn ${email.includes('admin') ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ fontSize: '0.78rem', padding: '0.45rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
-            onClick={() => setRoleDemo('ADMIN')}
-          >
-            <ShieldIcon size={14} /> Super Admin
-          </button>
-          <button
-            type="button"
-            className={`btn ${email.includes('staff') ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ fontSize: '0.78rem', padding: '0.45rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
-            onClick={() => setRoleDemo('STAFF')}
-          >
-            <UserIcon size={14} /> Service Advisor
-          </button>
-        </div>
+        {error && (
+          <div style={{
+            padding: '0.75rem 1rem',
+            marginBottom: '1.25rem',
+            background: 'var(--coral-bg)',
+            border: '1px solid var(--coral-border)',
+            color: 'var(--coral)',
+            fontSize: '0.82rem',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <AlertTriangleIcon size={16} />
+            <span>{error}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -107,6 +98,7 @@ function LoginScreen({ onLogin }) {
               className="form-input"
               value={email}
               onChange={e => setEmail(e.target.value)}
+              placeholder="e.g. admin@autoaudit.in"
               autoComplete="email"
               required
             />
@@ -119,6 +111,7 @@ function LoginScreen({ onLogin }) {
               className="form-input"
               value={password}
               onChange={e => setPassword(e.target.value)}
+              placeholder="Enter your password"
               autoComplete="current-password"
               required
             />
@@ -129,27 +122,9 @@ function LoginScreen({ onLogin }) {
             disabled={loading}
             style={{ marginTop: '0.5rem', opacity: loading ? 0.7 : 1 }}
           >
-            {loading ? 'Signing in…' : `Sign In as ${email.includes('admin') ? 'Super Admin' : 'Service Advisor'}`}
+            {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
-
-        <div style={{
-          marginTop: '1.25rem',
-          padding: '0.65rem 0.85rem',
-          background: 'var(--amber-bg)',
-          border: '1px solid var(--amber-border)',
-          borderRadius: 0,
-          fontSize: '0.77rem',
-          fontWeight: 700,
-          color: 'var(--amber-dark)',
-          textAlign: 'center',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '0.4rem',
-        }}>
-          {email.includes('admin') ? <><ShieldIcon size={14} /> Selected: Super Admin (Full Access)</> : <><UserIcon size={14} /> Selected: Service Advisor (Staff Access)</>}
-        </div>
       </div>
     </div>
   );
@@ -159,17 +134,19 @@ function LoginScreen({ onLogin }) {
 export default function App() {
   const [token, setToken]     = useState(localStorage.getItem('admin_token') || null);
   const [user, setUser]       = useState(JSON.parse(localStorage.getItem('admin_user') || 'null'));
-  const [activeTab, setActiveTab]               = useState('dashboard');
+  const [activeTab, setActiveTab]               = useState(() => sessionStorage.getItem('activeTab') || 'dashboard');
   const [siderailCollapsed, setSiderailCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Sync activeTab to sessionStorage for tab persistence across reloads
+  useEffect(() => { sessionStorage.setItem('activeTab', activeTab); }, [activeTab]);
 
   // Data persisted in localStorage
   const [customers, setCustomers] = useState(() => {
     try {
       const saved = localStorage.getItem('admin_customers');
-      const parsed = saved ? JSON.parse(saved) : [];
-      return parsed && parsed.length ? parsed : SEED.customers;
-    } catch { return SEED.customers; }
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
 
   const [feedbackLinks, setFeedbackLinks] = useState(() => {
@@ -203,7 +180,13 @@ export default function App() {
     }
   });
 
-  const [users, setUsers] = useState(SEED.users);
+  const [users, setUsers] = useState(() => {
+    try {
+      const saved = localStorage.getItem('admin_users');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
   const [historyLogs, setHistoryLogs] = useState(() => {
     try {
       const saved = localStorage.getItem('admin_history');
@@ -215,6 +198,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('admin_customers', JSON.stringify(customers)); }, [customers]);
   useEffect(() => { localStorage.setItem('admin_links', JSON.stringify(feedbackLinks)); }, [feedbackLinks]);
   useEffect(() => { localStorage.setItem('admin_complaints', JSON.stringify(complaints)); }, [complaints]);
+  useEffect(() => { localStorage.setItem('admin_users', JSON.stringify(users)); }, [users]);
   useEffect(() => { localStorage.setItem('admin_history', JSON.stringify(historyLogs)); }, [historyLogs]);
   useEffect(() => { localStorage.setItem('admin_service_centers', JSON.stringify(serviceCenters)); }, [serviceCenters]);
 
@@ -223,11 +207,15 @@ export default function App() {
   const [showLinkModal, setShowLinkModal]                   = useState(false);
   const [showInvoiceModal, setShowInvoiceModal]             = useState(false);
   const [showServiceCenterModal, setShowServiceCenterModal] = useState(false);
+  const [showUserModal, setShowUserModal]                   = useState(false);
   const [editingCustomer, setEditingCustomer]               = useState(null);
   const [editingComplaint, setEditingComplaint]             = useState(null);
 
   // Forms
   const [custForm, setCustForm] = useState({ name: '', mobile: '', email: '', vehicleNumber: '', vehicleModel: '', serviceCenter: 'Downtown Branch' });
+  const [userForm, setUserForm] = useState({ name: '', email: '', password: '', role: 'STAFF' });
+  const [userModalLoading, setUserModalLoading] = useState(false);
+  const [userModalError, setUserModalError]     = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [selectedComplaintId, setSelectedComplaintId] = useState('');
   const [invoiceFile, setInvoiceFile] = useState(null);
@@ -245,16 +233,17 @@ export default function App() {
   };
 
   const fetchBackendData = async () => {
-    if (!token || token.startsWith('demo_token_')) return;
+    if (!token) return;
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [cRes, lRes, cmpRes] = await Promise.all([
+      const [cRes, lRes, cmpRes, uRes] = await Promise.all([
         fetch(`${API_BASE}/customers`, { headers }).catch(() => null),
         fetch(`${API_BASE}/feedback-links`, { headers }).catch(() => null),
         fetch(`${API_BASE}/complaints`, { headers }).catch(() => null),
+        fetch(`${API_BASE}/auth/users`, { headers }).catch(() => null),
       ]);
 
-      if (cRes?.status === 401 || lRes?.status === 401 || cmpRes?.status === 401) {
+      if (cRes?.status === 401 || lRes?.status === 401 || cmpRes?.status === 401 || uRes?.status === 401) {
         localStorage.removeItem('admin_token');
         localStorage.removeItem('admin_user');
         setToken(null);
@@ -266,17 +255,22 @@ export default function App() {
       if (cRes?.ok) {
         const d = await cRes.json();
         const list = d.data?.customers || d.data || [];
-        if (list.length) setCustomers(list);
+        setCustomers(list);
       }
 
       if (lRes?.ok) {
         const d = await lRes.json();
-        if (d.data?.length) setFeedbackLinks(d.data);
+        setFeedbackLinks(d.data || []);
       }
 
       if (cmpRes?.ok) {
         const d = await cmpRes.json();
-        if (d.data?.length) setComplaints(d.data);
+        setComplaints(d.data || []);
+      }
+
+      if (uRes?.ok) {
+        const d = await uRes.json();
+        if (d.data?.length) setUsers(d.data);
       }
     } catch {}
   };
@@ -295,35 +289,12 @@ export default function App() {
         localStorage.setItem('admin_token', data.data.token);
         localStorage.setItem('admin_user', JSON.stringify(data.data.user));
         showSnackbar(`Welcome back, ${data.data.user.name}! Signed in as ${data.data.user.role === 'ADMIN' ? 'Super Admin' : 'Service Advisor'}.`, 'success');
+        return null;
       } else {
-        const role = email.includes('admin') ? 'ADMIN' : 'STAFF';
-        const demoUser = {
-          _id: role === 'ADMIN' ? 'usr1' : 'usr2',
-          name: role === 'ADMIN' ? 'System Administrator' : 'Service Advisor Staff',
-          email,
-          role,
-        };
-        const demoToken = 'demo_token_' + Date.now();
-        setToken(demoToken);
-        setUser(demoUser);
-        localStorage.setItem('admin_token', demoToken);
-        localStorage.setItem('admin_user', JSON.stringify(demoUser));
-        showSnackbar(`Signed in as ${demoUser.name} (${role})`, 'info');
+        return data.message || 'Invalid email or password. Please check your credentials.';
       }
     } catch (err) {
-      const role = email.includes('admin') ? 'ADMIN' : 'STAFF';
-      const demoUser = {
-        _id: role === 'ADMIN' ? 'usr1' : 'usr2',
-        name: role === 'ADMIN' ? 'System Administrator' : 'Service Advisor Staff',
-        email,
-        role,
-      };
-      const demoToken = 'demo_token_' + Date.now();
-      setToken(demoToken);
-      setUser(demoUser);
-      localStorage.setItem('admin_token', demoToken);
-      localStorage.setItem('admin_user', JSON.stringify(demoUser));
-      showSnackbar(`Signed in as ${demoUser.name} (${role})`, 'info');
+      return 'Unable to connect to backend server. Please try again.';
     }
   };
 
@@ -463,6 +434,37 @@ export default function App() {
     }
   };
 
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    setUserModalError('');
+    setUserModalLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(userForm)
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        const newUser = data.data;
+        setUsers(prev => [newUser, ...prev]);
+        addLog({ action: 'USER_CREATED', target: `${newUser.name} (${newUser.role})`, badgeClass: 'badge-purple', badgeText: 'USER ADDED', description: `Created new ${newUser.role} account for ${newUser.name}.` });
+        showSnackbar(`🎉 Account created for ${newUser.name} (${newUser.role})!`, 'success');
+        setShowUserModal(false);
+        setUserForm({ name: '', email: '', password: '', role: 'STAFF' });
+      } else {
+        setUserModalError(data.message || 'Failed to create user account.');
+      }
+    } catch (err) {
+      setUserModalError('Network error. Unable to reach server.');
+    } finally {
+      setUserModalLoading(false);
+    }
+  };
 
   // Service Center Branch Actions (Super Admin Exclusive)
   const [editingServiceCenter, setEditingServiceCenter] = useState(null);
@@ -638,6 +640,7 @@ export default function App() {
           onAddServiceCenter={() => setShowServiceCenterModal(true)}
           onEditServiceCenter={handleEditServiceCenter}
           onRemoveServiceCenter={handleRemoveServiceCenter}
+          onAddUser={() => { setUserModalError(''); setUserForm({ name: '', email: '', password: '', role: 'STAFF' }); setShowUserModal(true); }}
           onEditUser={handleEditUser}
           onDeleteUser={handleDeleteUser}
           searchQuery={q}
@@ -722,6 +725,17 @@ export default function App() {
           onClose={() => { setShowServiceCenterModal(false); setEditingServiceCenter(null); }}
           onSave={handleAddServiceCenter}
           editingCenter={editingServiceCenter}
+        />
+      )}
+
+      {showUserModal && (
+        <UserModal
+          onClose={() => setShowUserModal(false)}
+          userForm={userForm}
+          setUserForm={setUserForm}
+          onSubmit={handleCreateUser}
+          loading={userModalLoading}
+          error={userModalError}
         />
       )}
 

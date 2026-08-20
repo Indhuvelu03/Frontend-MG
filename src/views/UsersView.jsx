@@ -9,6 +9,7 @@ export default function UsersView({
   onAddServiceCenter,
   onEditServiceCenter,
   onRemoveServiceCenter,
+  onAddUser,
   onEditUser,
   onDeleteUser,
   searchQuery
@@ -150,6 +151,11 @@ export default function UsersView({
             <h3 className="card-title">👥 Staff System Accounts</h3>
             <span className="card-subtitle">Registered user login credentials &amp; assigned roles</span>
           </div>
+          {isAdmin && (
+            <button className="btn btn-primary btn-sm" onClick={onAddUser}>
+              <PlusIcon size={14} /> Add Staff Account
+            </button>
+          )}
         </div>
 
         {users.length === 0 ? (

@@ -281,3 +281,69 @@ export function ServiceCenterModal({ onClose, onSave, editingCenter = null }) {
     </Modal>
   );
 }
+
+// Create Staff Account Modal
+export function UserModal({ onClose, userForm, setUserForm, onSubmit, loading = false, error = '' }) {
+  return (
+    <Modal title="Create Staff System Account" onClose={onClose}>
+      <form onSubmit={onSubmit}>
+        {error && (
+          <div style={{ padding: '0.65rem 0.85rem', marginBottom: '1rem', background: 'var(--coral-bg)', border: '1px solid var(--coral-border)', color: 'var(--coral)', fontSize: '0.8rem', fontWeight: 600 }}>
+            ⚠️ {error}
+          </div>
+        )}
+        <div className="form-group">
+          <label className="form-label">Full Name</label>
+          <input
+            type="text"
+            className="form-input"
+            value={userForm.name}
+            onChange={e => setUserForm({ ...userForm, name: e.target.value })}
+            placeholder="e.g. Anand Kumar"
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Email Address</label>
+          <input
+            type="email"
+            className="form-input"
+            value={userForm.email}
+            onChange={e => setUserForm({ ...userForm, email: e.target.value })}
+            placeholder="e.g. anand@autoaudit.in"
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Password</label>
+          <input
+            type="password"
+            className="form-input"
+            value={userForm.password}
+            onChange={e => setUserForm({ ...userForm, password: e.target.value })}
+            placeholder="Minimum 6 characters"
+            required
+            minLength={6}
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Assigned Role</label>
+          <select
+            className="form-select"
+            value={userForm.role}
+            onChange={e => setUserForm({ ...userForm, role: e.target.value })}
+          >
+            <option value="STAFF">👤 Service Advisor (Staff Access)</option>
+            <option value="ADMIN">🛡️ Super Admin (Full Access)</option>
+          </select>
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={loading}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={loading}>
+            {loading ? "Creating Account…" : "Create Account"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
