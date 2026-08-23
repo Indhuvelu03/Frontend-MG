@@ -249,12 +249,13 @@ export default function App() {
     if (!token) return;
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [cRes, lRes, cmpRes, uRes, emailRes] = await Promise.all([
+      const [cRes, lRes, cmpRes, uRes, emailRes, scRes] = await Promise.all([
         fetch(`${API_BASE}/customers`, { headers }).catch(() => null),
         fetch(`${API_BASE}/feedback-links`, { headers }).catch(() => null),
         fetch(`${API_BASE}/complaints`, { headers }).catch(() => null),
         fetch(`${API_BASE}/auth/users`, { headers }).catch(() => null),
         fetch(`${API_BASE}/email-activity?limit=100`, { headers }).catch(() => null),
+        fetch(`${API_BASE}/service-centers`, { headers }).catch(() => null),
       ]);
 
       if (cRes?.status === 401 || lRes?.status === 401 || cmpRes?.status === 401 || uRes?.status === 401) {
@@ -289,6 +290,10 @@ export default function App() {
       if (emailRes?.ok) {
         const d = await emailRes.json();
         setEmailActivities(d.data || []);
+      }
+      if (scRes?.ok) {
+        const d = await scRes.json();
+        setServiceCenters(d.data || []);
       }
     } catch {}
   };
@@ -403,10 +408,11 @@ export default function App() {
     try {
       const res  = await fetch(`${API_BASE}/feedback-links/create`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ customerId: cId }) });
       const data = await res.json();
-      if (data.success) setFeedbackLinks([data.data, ...feedbackLinks]);
-      else throw new Error();
-    } catch {
-      setFeedbackLinks([{ _id: 'l_' + Date.now(), token: 'tok_' + Math.random().toString(36).substring(7), customerId: cId, status: 'PENDING' }, ...feedbackLinks]);
+      if (!data.success || !data.data) throw new Error(data.message || 'Unable to create feedback link');
+      setFeedbackLinks([data.data, ...feedbackLinks]);
+    } catch (error) {
+      showSnackbar(`Unable to create feedback link: ${error.message}`, 'error');
+      return;
     }
     addLog({ action: 'FEEDBACK_LINK_CREATED', target: 'New Feedback Token', badgeClass: 'badge-amber', badgeText: 'TOKEN ISSUED', description: 'Generated secure public feedback link valid for 7 days.' });
     setShowLinkModal(false);
@@ -429,22 +435,9 @@ export default function App() {
       const res = await fetch(`${API_BASE}/invoices/upload`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData });
       const data = await res.json();
       if (!data.success) throw new Error();
-    } catch {
-      const newComplaint = {
-        _id: 'cmp_' + Date.now(),
-        customerId: cId,
-        vehicleNumber: vNum,
-        status: 'COMPARED',
-        transcript: 'Customer requested periodic vehicle maintenance, front brake pad inspection, and synthetic engine oil replacement.',
-        audioUrl: '',
-        aiComparison: {
-          matchPercentage: 100,
-          conclusion: 'FULL_MATCH',
-          matchedItems: ['Front Brake Pad Replacement', 'Synthetic Engine Oil Refill', 'Wiper Fluid Top-up'],
-          analysis: `Semantic Audit Complete: Verified 3 billed repair line items against customer voice complaint recording for vehicle ${vNum}.`
-        }
-      };
-      setComplaints(prev => [newComplaint, ...prev]);
+    } catch (error) {
+      showSnackbar(`Invoice upload failed: ${error.message || 'Please try again.'}`, 'error');
+      return;
     }
     addLog({ action: 'INVOICE_UPLOADED', target: invoiceFile.name, badgeClass: 'badge-amber', badgeText: 'PDF UPLOADED', description: `Uploaded invoice PDF (${invoiceFile.name}) and completed AI semantic audit for vehicle ${vNum}.` });
     setShowInvoiceModal(false);
@@ -453,7 +446,10 @@ export default function App() {
 
   // Delete Voice Note (so customer can re-record latest audio)
   const handleDeleteVoiceNote = (complaintId) => {
-    requestConfirmation('Delete voice recording', 'Delete this voice recording? The customer can submit a new response using their feedback link.', 'Delete recording', () => {
+    requestConfirmation('Delete voice recording', 'Delete this voice recording and its related audit files? The customer can submit a new response using a new feedback link.', 'Delete recording', async () => {
+      const res = await fetch(`${API_BASE}/complaints/${complaintId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (!res.ok || !data.success) { showSnackbar(data.message || 'Unable to delete voice recording.', 'error'); return; }
       setComplaints(prev => prev.filter(c => c._id !== complaintId));
       addLog({ action: 'VOICE_NOTE_DELETED', target: `Complaint #${complaintId.substring(0, 8)}`, badgeClass: 'badge-coral', badgeText: 'VOICE DELETED', description: 'Deleted incorrect voice recording so customer can submit latest audio response.' });
       showSnackbar('Voice recording deleted.', 'info');
@@ -462,8 +458,10 @@ export default function App() {
 
   // Delete Wrong Invoice PDF
   const handleDeleteInvoicePdf = (complaintId) => {
-    requestConfirmation('Delete invoice PDF', 'Delete this invoice PDF? This cannot be undone from the dashboard.', 'Delete invoice', () => {
-      setComplaints(prev => prev.filter(c => c._id !== complaintId));
+    requestConfirmation('Delete invoice PDF', 'Delete the uploaded invoice PDF while retaining the customer feedback record?', 'Delete invoice', async () => {
+      const res = await fetch(`${API_BASE}/invoices/complaint/${complaintId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (!res.ok || !data.success) { showSnackbar(data.message || 'Unable to delete invoice.', 'error'); return; }
       addLog({ action: 'INVOICE_PDF_DELETED', target: `Complaint #${complaintId.substring(0, 8)}`, badgeClass: 'badge-coral', badgeText: 'PDF DELETED', description: 'Deleted wrongly uploaded repair invoice PDF.' });
       showSnackbar('Invoice PDF deleted.', 'info');
     });
@@ -504,23 +502,28 @@ export default function App() {
   // Service Center Branch Actions (Super Admin Exclusive)
   const [editingServiceCenter, setEditingServiceCenter] = useState(null);
 
-  const handleAddServiceCenter = (name, location, managerEmail, existingId) => {
-    const emailVal = managerEmail || 'manager@autoaudit.in';
-    if (existingId) {
-      setServiceCenters(prev => prev.map(s => s.id === existingId ? { ...s, name, location: location || 'Main', managerEmail: emailVal } : s));
+  const handleAddServiceCenter = async (name, location, managerEmail, existingId) => {
+    try {
+      const res = await fetch(`${API_BASE}/service-centers${existingId ? `/${existingId}` : ''}`, { method: existingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ name, location: location || 'Main', managerEmail }) });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Unable to save service center');
+      if (existingId) {
+      setServiceCenters(prev => prev.map(s => s.id === existingId ? data.data : s));
       addLog({ action: 'SERVICE_CENTER_UPDATED', target: name, badgeClass: 'badge-blue', badgeText: 'BRANCH UPDATED', description: `Updated service center branch (${name}) — Manager: ${emailVal}.` });
-      showSnackbar(`✅ Branch ${name} updated! Escalations will go to ${emailVal}`, 'info');
+      showSnackbar(`Branch ${name} updated. Escalations will go to ${managerEmail}`, 'info');
     } else {
-      const newCenter = { id: 'sc_' + Date.now(), name, location: location || 'Main', managerEmail: emailVal };
-      setServiceCenters(prev => [...prev, newCenter]);
-      addLog({ action: 'SERVICE_CENTER_ADDED', target: name, badgeClass: 'badge-purple', badgeText: 'BRANCH ADDED', description: `Added new service center branch (${name}) — Manager: ${emailVal}.` });
-      showSnackbar(`🎉 New branch ${name} registered! Manager: ${emailVal}`, 'success');
+      setServiceCenters(prev => [...prev, data.data]);
+      addLog({ action: 'SERVICE_CENTER_ADDED', target: name, badgeClass: 'badge-purple', badgeText: 'BRANCH ADDED', description: `Added new service center branch (${name}) — Manager: ${managerEmail}.` });
+      showSnackbar(`New branch ${name} registered.`, 'success');
     }
+    } catch (error) { showSnackbar(error.message, 'error'); return; }
     setEditingServiceCenter(null);
   };
 
-  const handleRemoveServiceCenter = (id) => {
+  const handleRemoveServiceCenter = async (id) => {
     const center = serviceCenters.find(s => s.id === id);
+    const res = await fetch(`${API_BASE}/service-centers/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) { showSnackbar('Unable to delete service center.', 'error'); return; }
     setServiceCenters(prev => prev.filter(s => s.id !== id));
     addLog({ action: 'SERVICE_CENTER_REMOVED', target: center?.name || 'Branch', badgeClass: 'badge-coral', badgeText: 'BRANCH DELETED', description: `Removed service center branch (${center?.name}).` });
   };
@@ -603,17 +606,27 @@ export default function App() {
 
   const handleDeleteUser = async (id) => {
     requestConfirmation('Delete staff account', 'Delete this staff account from the dashboard?', 'Delete account', () => {
-      setUsers(prev => prev.filter(u => u._id !== id && u.id !== id));
-      addLog({ action: 'USER_DELETED', target: `Staff User #${(id || '').toString().substring(0, 8)}`, badgeClass: 'badge-coral', badgeText: 'DELETED', description: 'Deleted staff user account.' });
-      showSnackbar('Staff account deleted.', 'info');
+      fetch(`${API_BASE}/auth/users/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+        .then(res => res.json().then(data => ({ res, data })))
+        .then(({ res, data }) => {
+          if (!res.ok || !data.success) throw new Error(data.message || 'Unable to delete staff account');
+          setUsers(prev => prev.filter(u => u._id !== id && u.id !== id));
+          addLog({ action: 'USER_DELETED', target: `Staff User #${(id || '').toString().substring(0, 8)}`, badgeClass: 'badge-coral', badgeText: 'DELETED', description: 'Deleted staff user account.' });
+          showSnackbar('Staff account deleted.', 'info');
+        }).catch(error => showSnackbar(error.message, 'error'));
     });
   };
 
   const handleDeleteLink = async (id) => {
     requestConfirmation('Delete feedback link', 'Delete this secure feedback link? The customer will no longer be able to use it.', 'Delete link', () => {
-      setFeedbackLinks(prev => prev.filter(l => l._id !== id && l.id !== id));
-      addLog({ action: 'LINK_DELETED', target: `Token #${(id || '').toString().substring(0, 8)}`, badgeClass: 'badge-coral', badgeText: 'DELETED', description: 'Deleted feedback link token.' });
-      showSnackbar('Feedback link deleted.', 'info');
+      fetch(`${API_BASE}/feedback-links/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+        .then(res => res.json().then(data => ({ res, data })))
+        .then(({ res, data }) => {
+          if (!res.ok || !data.success) throw new Error(data.message || 'Unable to delete feedback link');
+          setFeedbackLinks(prev => prev.filter(l => l._id !== id && l.id !== id));
+          addLog({ action: 'LINK_DELETED', target: `Token #${(id || '').toString().substring(0, 8)}`, badgeClass: 'badge-coral', badgeText: 'DELETED', description: 'Deleted feedback link token.' });
+          showSnackbar('Feedback link deleted.', 'info');
+        }).catch(error => showSnackbar(error.message, 'error'));
     });
   };
 
@@ -626,11 +639,17 @@ export default function App() {
     setEditingUser(u);
   };
 
-  const saveEditedUser = (updatedUser) => {
-    setUsers(prev => prev.map(item => (item._id === updatedUser._id || item.id === updatedUser.id) ? updatedUser : item));
-    addLog({ action: 'USER_UPDATED', target: updatedUser.name, badgeClass: 'badge-blue', badgeText: 'USER UPDATED', description: `Updated staff user account (${updatedUser.name}).` });
-    showSnackbar('Staff account updated.', 'success');
-    setEditingUser(null);
+  const saveEditedUser = async (updatedUser) => {
+    try {
+      const id = updatedUser._id || updatedUser.id;
+      const res = await fetch(`${API_BASE}/auth/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ name: updatedUser.name, role: updatedUser.role }) });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Unable to update staff account');
+      setUsers(prev => prev.map(item => (item._id === id || item.id === id) ? data.data : item));
+      addLog({ action: 'USER_UPDATED', target: data.data.name, badgeClass: 'badge-blue', badgeText: 'USER UPDATED', description: `Updated staff user account (${data.data.name}).` });
+      showSnackbar('Staff account updated.', 'success');
+      setEditingUser(null);
+    } catch (error) { showSnackbar(error.message, 'error'); }
   };
 
   // ── Render current page view ─────────────────────────────────────────────────
