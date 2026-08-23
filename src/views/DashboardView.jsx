@@ -10,8 +10,16 @@ export default function DashboardView({ customers, complaints, historyLogs, getC
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentComplaints = complaints.slice(indexOfFirstItem, indexOfLastItem);
 
-  const verifiedCount = complaints.filter(c => c.status === 'COMPARED' || c.comparisonScore >= 60).length || complaints.length;
+  const verifiedCount = complaints.filter(c => c.status === 'COMPARED' || c.comparisonScore >= 60 || c.aiComparison?.matchPercentage >= 60).length;
   const fraudCount = complaints.filter(c => (c.comparisonScore || 100) < 60 || c.status === 'FLAGGED').length;
+  const completedAudits = complaints.filter(c => c.status === 'COMPARED' || c.aiComparison || typeof c.comparisonScore === 'number');
+  const scores = completedAudits.map(c => Number(c.aiComparison?.matchPercentage ?? c.comparisonScore)).filter(Number.isFinite);
+  const averageScore = scores.length ? Math.round(scores.reduce((total, score) => total + score, 0) / scores.length) : null;
+  const auditStatus = (complaint) => {
+    if (complaint.status === 'COMPARED' || complaint.aiComparison || typeof complaint.comparisonScore === 'number') return 'COMPLETE';
+    if (complaint.status === 'FAILED') return 'ACTION NEEDED';
+    return (complaint.status || 'PROCESSING').replaceAll('_', ' ');
+  };
 
   return (
     <div>
@@ -51,12 +59,12 @@ export default function DashboardView({ customers, complaints, historyLogs, getC
         <div className="stat-card accent-blue" style={{ cursor: 'pointer' }} onClick={() => setActiveTab('reports')}>
           <div className="stat-card-top">
             <div className="stat-icon blue"><CpuIcon size={16} /></div>
-            <span className="stat-trend up">Groq AI</span>
+            <span className="stat-trend up">Live data</span>
           </div>
           <div className="stat-label">Average Match Score</div>
           <div className="stat-value-row">
-            <span className="stat-value">98%</span>
-            <span className="stat-badge badge-green">Excellent</span>
+            <span className="stat-value">{averageScore !== null ? `${averageScore}%` : '—'}</span>
+            <span className={`stat-badge ${averageScore !== null ? 'badge-green' : 'badge-amber'}`}>{averageScore !== null ? 'Completed audits' : 'Awaiting audit'}</span>
           </div>
           <div className="stat-trend-label">Across all service centers →</div>
         </div>
@@ -140,8 +148,8 @@ export default function DashboardView({ customers, complaints, historyLogs, getC
                         </td>
                         <td><strong style={{ fontFamily: 'monospace', letterSpacing: '0.03em', fontWeight: 700 }}>{c.vehicleNumber}</strong></td>
                         <td className="cell-truncate">"{c.transcript || 'Transcribing…'}"</td>
-                        <td><span className="stat-badge badge-green">VERIFIED</span></td>
-                        <td><span className="stat-badge badge-green">100%</span></td>
+                        <td><span className={`stat-badge ${auditStatus(c) === 'COMPLETE' ? 'badge-green' : auditStatus(c) === 'ACTION NEEDED' ? 'badge-coral' : 'badge-amber'}`}>{auditStatus(c)}</span></td>
+                        <td><span className={`stat-badge ${typeof (c.aiComparison?.matchPercentage ?? c.comparisonScore) === 'number' ? 'badge-green' : 'badge-amber'}`}>{typeof (c.aiComparison?.matchPercentage ?? c.comparisonScore) === 'number' ? `${c.aiComparison?.matchPercentage ?? c.comparisonScore}%` : '—'}</span></td>
                         <td style={{ textAlign: 'right' }}>
                           <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('comparison')}>Inspect</button>
                         </td>
