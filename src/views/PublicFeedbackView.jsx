@@ -4,7 +4,6 @@ import { ZapIcon, MicIcon, CheckIcon, CarIcon, LockIcon, FolderIcon, AlertTriang
 export default function PublicFeedbackView({ token, customers = [], feedbackLinks = [] }) {
   const [audioMode, setAudioMode] = useState('record'); // 'record' | 'upload'
   const [feedbackMode, setFeedbackMode] = useState('text'); // 'text' | 'audio' | 'both'
-  const [rating, setRating] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
   const [recordedBlob, setRecordedBlob] = useState(null);
@@ -138,7 +137,6 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
     try {
       const formData = new FormData();
       formData.append('vehicleNumber', targetVehicle);
-      if (rating) formData.append('rating', String(rating));
       if (fileToSend) formData.append('audio', fileToSend);
       if (needsText) formData.append('feedbackText', notes.trim());
 
@@ -339,11 +337,6 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
                   <option value="audio">Record or upload voice feedback</option>
                   <option value="both">Write feedback + voice note</option>
                 </select>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '1rem' }}>
-                <label className="form-label">How was your overall service experience? <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>(optional)</span></label>
-                <div style={{ display: 'flex', gap: '.4rem' }}>{[1, 2, 3, 4, 5].map(value => <button key={value} type="button" className={`btn btn-sm ${rating >= value ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setRating(value)} aria-label={`${value} star rating`}>★</button>)}</div>
               </div>
 
               {(feedbackMode === 'audio' || feedbackMode === 'both') && <div style={{ marginBottom: '1rem', padding: '.85rem', background: '#fafafa', border: '1px solid #e2e8f0', borderRadius: '12px' }}>
