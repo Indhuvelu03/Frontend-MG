@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { PlusIcon, CopyIcon, ExternalLinkIcon, CheckIcon, TrashIcon } from '../components/Icons';
+import { PlusIcon, CopyIcon, ExternalLinkIcon, CheckIcon, TrashIcon, MailIcon } from '../components/Icons';
 import Pagination from '../components/Pagination';
 
-export default function LinksView({ feedbackLinks, customers, getCustName, onNewLink, onDeleteLink, searchQuery }) {
+export default function LinksView({ feedbackLinks, customers, getCustName, onNewLink, onDeleteLink, onResendLink, searchQuery }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [copiedId, setCopiedId] = useState(null);
   const itemsPerPage = 6;
@@ -129,6 +129,7 @@ export default function LinksView({ feedbackLinks, customers, getCustName, onNew
                             >
                               Open <ExternalLinkIcon size={13} />
                             </a>
+                            {l.status === 'PENDING' && onResendLink && <button className="btn btn-secondary btn-sm" onClick={() => onResendLink(l._id || l.id)} style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem' }} title="Resend invite email"><MailIcon size={13} /> Resend</button>}
                             {onDeleteLink && (
                               <button
                                 className="btn btn-secondary btn-sm"

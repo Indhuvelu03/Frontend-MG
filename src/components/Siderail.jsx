@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   ZapIcon, DashboardIcon, HistoryIcon, CarIcon, LinkIcon,
-  MicIcon, CpuIcon, UsersIcon, ReportsIcon, LogoutIcon, MenuIcon, MailIcon
+  MicIcon, CpuIcon, UsersIcon, ReportsIcon, LogoutIcon, MenuIcon, MailIcon, ShieldIcon
 } from './Icons';
 
 const NAV_GROUPS = [
@@ -20,6 +20,7 @@ const NAV_GROUPS = [
       { id: 'complaints', label: 'Voice & Invoices',      icon: MicIcon },
       { id: 'comparison', label: 'AI Audit Engine',       icon: CpuIcon, badge: { text: '100%', cls: 'badge-green' } },
       { id: 'email-activity', label: 'Email Activity',    icon: MailIcon },
+      { id: 'manager-review', label: 'Manager Review',     icon: ShieldIcon },
     ],
   },
   {

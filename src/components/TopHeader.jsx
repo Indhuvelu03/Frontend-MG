@@ -9,6 +9,7 @@ const PAGE_TITLES = {
   complaints: { title: 'Voice & Invoices',     subtitle: 'Recordings & PDFs' },
   comparison: { title: 'AI Audit Engine',      subtitle: 'Semantic matching' },
   'email-activity': { title: 'Email Activity', subtitle: 'Automated message timeline' },
+  'manager-review': { title: 'Manager Review', subtitle: 'Escalations and SLA exceptions' },
   users:      { title: 'Staff & Users',        subtitle: 'Accounts & roles' },
   reports:    { title: 'Analytics',            subtitle: 'Performance reports' },
 };

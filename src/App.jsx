@@ -17,7 +17,9 @@ import ComparisonView from './views/ComparisonView';
 import UsersView      from './views/UsersView';
 import ReportsView    from './views/ReportsView';
 import EmailActivityView from './views/EmailActivityView';
+import ManagerReviewView from './views/ManagerReviewView';
 import PublicFeedbackView from './views/PublicFeedbackView';
+import PublicTrackingView from './views/PublicTrackingView';
 
 // Icons
 import { ZapIcon, ShieldIcon, UserIcon, MailIcon, InfoIcon, AlertTriangleIcon, EyeIcon, EyeOffIcon } from './components/Icons';
@@ -228,6 +230,8 @@ export default function App() {
   const [userModalError, setUserModalError]     = useState('');
   const [customerModalLoading, setCustomerModalLoading] = useState(false);
   const [emailActivities, setEmailActivities] = useState([]);
+  const [managerCases, setManagerCases] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [selectedComplaintId, setSelectedComplaintId] = useState('');
   const [invoiceFile, setInvoiceFile] = useState(null);
@@ -249,13 +253,15 @@ export default function App() {
     if (!token) return;
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [cRes, lRes, cmpRes, uRes, emailRes, scRes] = await Promise.all([
+      const [cRes, lRes, cmpRes, uRes, emailRes, scRes, managerRes, reportRes] = await Promise.all([
         fetch(`${API_BASE}/customers`, { headers }).catch(() => null),
         fetch(`${API_BASE}/feedback-links`, { headers }).catch(() => null),
         fetch(`${API_BASE}/complaints`, { headers }).catch(() => null),
         fetch(`${API_BASE}/auth/users`, { headers }).catch(() => null),
         fetch(`${API_BASE}/email-activity?limit=100`, { headers }).catch(() => null),
         fetch(`${API_BASE}/service-centers`, { headers }).catch(() => null),
+        fetch(`${API_BASE}/manager/cases`, { headers }).catch(() => null),
+        fetch(`${API_BASE}/reports/dashboard`, { headers }).catch(() => null),
       ]);
 
       if (cRes?.status === 401 || lRes?.status === 401 || cmpRes?.status === 401 || uRes?.status === 401) {
@@ -294,6 +300,14 @@ export default function App() {
       if (scRes?.ok) {
         const d = await scRes.json();
         setServiceCenters(d.data || []);
+      }
+      if (managerRes?.ok) {
+        const d = await managerRes.json();
+        setManagerCases(d.data || []);
+      }
+      if (reportRes?.ok) {
+        const d = await reportRes.json();
+        setAnalytics(d.data || null);
       }
     } catch {}
   };
@@ -456,6 +470,26 @@ export default function App() {
     });
   };
 
+  const handleResendLink = async (feedbackLinkId) => {
+    try {
+      const res = await fetch(`${API_BASE}/feedback-links/send`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ feedbackLinkId }) });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Unable to queue invite');
+      showSnackbar('Feedback invitation queued for resend.', 'success');
+      setTimeout(fetchBackendData, 1000);
+    } catch (error) { showSnackbar(error.message, 'error'); }
+  };
+
+  const handleManagerReview = async (complaintId, reviewStatus, reviewNotes) => {
+    try {
+      const res = await fetch(`${API_BASE}/manager/cases/${complaintId}/review`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ reviewStatus, reviewNotes }) });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Unable to save manager decision');
+      showSnackbar('Manager decision saved.', 'success');
+      fetchBackendData();
+    } catch (error) { showSnackbar(error.message, 'error'); }
+  };
+
   // Delete Wrong Invoice PDF
   const handleDeleteInvoicePdf = (complaintId) => {
     requestConfirmation('Delete invoice PDF', 'Delete the uploaded invoice PDF while retaining the customer feedback record?', 'Delete invoice', async () => {
@@ -530,6 +564,10 @@ export default function App() {
 
   // ── Public Customer Feedback Route ───────────────────────────────────────────
   const path = window.location.pathname;
+  if (path.includes('/tracking/')) {
+    const publicToken = path.split('/').filter(Boolean).pop();
+    return <PublicTrackingView token={publicToken} />;
+  }
   if (path.includes('/feedback/') || path.includes('/public/')) {
     const parts = path.split('/');
     const publicToken = parts[parts.length - 1] || parts[parts.length - 2];
@@ -668,7 +706,7 @@ export default function App() {
           searchQuery={q}
         />
       );
-      case 'links':      return <LinksView feedbackLinks={filteredLinks} customers={customers} getCustName={getCustName} onNewLink={() => setShowLinkModal(true)} onDeleteLink={handleDeleteLink} searchQuery={q} />;
+      case 'links':      return <LinksView feedbackLinks={filteredLinks} customers={customers} getCustName={getCustName} onNewLink={() => setShowLinkModal(true)} onDeleteLink={handleDeleteLink} onResendLink={handleResendLink} searchQuery={q} />;
       case 'complaints': return (
         <ComplaintsView
           complaints={filteredComplaints}
@@ -692,6 +730,7 @@ export default function App() {
         />
       );
       case 'email-activity': return <EmailActivityView activities={emailActivities} searchQuery={q} />;
+      case 'manager-review': return <ManagerReviewView cases={managerCases} onReview={handleManagerReview} />;
 
       case 'users': return (
         <UsersView
@@ -713,6 +752,7 @@ export default function App() {
           complaints={complaints}
           feedbackLinks={feedbackLinks}
           serviceCenters={serviceCenters}
+          analytics={analytics}
           setActiveTab={setActiveTab}
           setSearchQuery={setSearchQuery}
         />

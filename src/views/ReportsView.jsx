@@ -23,36 +23,34 @@ export default function ReportsView({
   complaints = [],
   feedbackLinks = [],
   serviceCenters = [],
+  analytics = null,
   setActiveTab,
   setSearchQuery
 }) {
   // Dynamic Live Analytics Calculations
   const totalCustomers = customers.length;
   const totalComplaints = complaints.length;
-  const totalAudited = complaints.filter(c => c.invoicePdfUrl || c.invoice_pdf_url || c.parsed_items || c.comparisonScore).length || totalComplaints;
+  const totalAudited = analytics?.auditSummary?.totalAudited ?? complaints.filter(c => c.invoicePdfUrl || c.invoice_pdf_url || c.parsed_items || typeof c.comparisonScore === 'number' || typeof c.comparison_score === 'number').length;
   
   // Calculate average match score from complaints
-  const scores = complaints.map(c => c.comparisonScore || c.comparison_score || 98).filter(Boolean);
-  const avgMatchScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 98;
+  const scores = complaints.map(c => c.comparisonScore ?? c.comparison_score).filter(Number.isFinite);
+  const avgMatchScore = analytics?.auditSummary?.averageScore ?? (scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0);
   
   // Fraud flags detected
-  const fraudFlags = complaints.filter(c => (c.comparisonScore || c.comparison_score || 100) < 60 || c.status === 'FLAGGED').length;
+  const fraudFlags = analytics?.auditSummary?.mismatches ?? complaints.filter(c => (c.comparisonScore || c.comparison_score || 100) < 60 || c.status === 'FLAGGED').length;
 
   // Dynamic Branch Metrics breakdown
-  const branchData = (serviceCenters.length > 0 ? serviceCenters : [
-    { id: 'sc1', name: 'Downtown Branch', location: 'Bangalore' },
-    { id: 'sc2', name: 'West End Workshop', location: 'Mumbai' },
-    { id: 'sc3', name: 'North Hub Service', location: 'Delhi' }
-  ]).map((sc, i) => {
+  const branchData = serviceCenters.map((sc, i) => {
     const branchName = sc.name;
     const branchCusts = customers.filter(c => (c.serviceCenter || c.service_center || 'Downtown Branch') === branchName);
     const branchComplaints = complaints.filter(c => {
       const cust = customers.find(cust => cust._id === c.customerId || cust._id === c.customer_id);
       return cust ? (cust.serviceCenter || cust.service_center) === branchName : true;
     });
-    const branchAudits = branchComplaints.filter(c => c.invoicePdfUrl || c.invoice_pdf_url || c.parsed_items).length || branchComplaints.length;
-    const branchScores = branchComplaints.map(c => c.comparisonScore || c.comparison_score || 98);
-    const branchScore = branchScores.length > 0 ? Math.round(branchScores.reduce((a, b) => a + b, 0) / branchScores.length) : (98 - i % 3);
+    const apiBranch = analytics?.serviceCenterPerformance?.find(item => item._id === branchName);
+    const branchAudits = apiBranch?.auditVolume ?? branchComplaints.filter(c => c.invoicePdfUrl || c.invoice_pdf_url || c.parsed_items || typeof c.comparisonScore === 'number' || typeof c.comparison_score === 'number').length;
+    const branchScores = branchComplaints.map(c => c.comparisonScore ?? c.comparison_score).filter(Number.isFinite);
+    const branchScore = apiBranch?.avgScore ?? (branchScores.length > 0 ? Math.round(branchScores.reduce((a, b) => a + b, 0) / branchScores.length) : 0);
     const branchFlags = branchComplaints.filter(c => (c.comparisonScore || c.comparison_score || 100) < 60).length;
 
     return {
@@ -80,7 +78,7 @@ export default function ReportsView({
           <p className="page-subtitle">Real-time branch performance, discrepancy rates, and AI audit metrics from live database</p>
         </div>
         <span className="stat-badge badge-green" style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-          <CheckIcon size={14} /> Live Supabase Engine Connected
+          <CheckIcon size={14} /> {analytics ? 'Live Supabase Metrics' : 'Live Records'}
         </span>
       </div>
 
