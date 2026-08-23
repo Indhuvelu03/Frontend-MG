@@ -178,7 +178,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
       : notes.trim().length >= 10 && hasAudio;
 
   return (
-    <div style={{
+    <div className="public-feedback-page" style={{
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #eff6ff 0%, #f8fafc 48%, #ecfdf5 100%)',
       display: 'flex',
@@ -187,7 +187,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
       padding: '1rem',
       fontFamily: 'var(--font)',
     }}>
-      <div style={{
+      <div className="public-feedback-card" style={{
         width: '100%',
         maxWidth: '580px',
         background: '#fff',

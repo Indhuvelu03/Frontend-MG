@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { XIcon, PlusIcon, TrashIcon, EditIcon } from './Icons';
+import { XIcon, PlusIcon, TrashIcon, EditIcon, EyeIcon, EyeOffIcon } from './Icons';
 
 // Reusable Modal wrapper
 export function Modal({ title, onClose, children }) {
@@ -18,8 +18,20 @@ export function Modal({ title, onClose, children }) {
   );
 }
 
+export function ConfirmModal({ title = 'Confirm action', message, confirmLabel = 'Confirm', onClose, onConfirm }) {
+  return (
+    <Modal title={title} onClose={onClose}>
+      <div className="confirm-modal-copy">{message}</div>
+      <div className="modal-actions">
+        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button type="button" className="btn btn-danger" onClick={() => { onConfirm(); onClose(); }}>{confirmLabel}</button>
+      </div>
+    </Modal>
+  );
+}
+
 // Create / Edit Customer Modal
-export function CustomerModal({ onClose, custForm, setCustForm, onSubmit, serviceCenters = [], isEditing = false }) {
+export function CustomerModal({ onClose, custForm, setCustForm, onSubmit, serviceCenters = [], isEditing = false, loading = false }) {
   return (
     <Modal title={isEditing ? "Edit Customer Record" : "Register Customer Record"} onClose={onClose}>
       <form onSubmit={onSubmit}>
@@ -98,8 +110,10 @@ export function CustomerModal({ onClose, custForm, setCustForm, onSubmit, servic
           </select>
         </div>
         <div className="modal-actions">
-          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary">Save Customer Record</button>
+          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={loading}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={loading}>
+            {loading ? (isEditing ? 'Saving & scheduling email…' : 'Creating & scheduling email…') : (isEditing ? 'Save Customer Record' : 'Create Customer & Send Invite')}
+          </button>
         </div>
       </form>
     </Modal>
@@ -286,6 +300,7 @@ export function ServiceCenterModal({ onClose, onSave, editingCenter = null }) {
 
 // Create Staff Account Modal
 export function UserModal({ onClose, userForm, setUserForm, onSubmit, loading = false, error = '' }) {
+  const [showPassword, setShowPassword] = useState(false);
   return (
     <Modal title="Create Staff System Account" onClose={onClose}>
       <form onSubmit={onSubmit}>
@@ -318,15 +333,20 @@ export function UserModal({ onClose, userForm, setUserForm, onSubmit, loading = 
         </div>
         <div className="form-group">
           <label className="form-label">Password</label>
-          <input
-            type="password"
-            className="form-input"
-            value={userForm.password}
-            onChange={e => setUserForm({ ...userForm, password: e.target.value })}
-            placeholder="Minimum 6 characters"
-            required
-            minLength={6}
-          />
+          <div className="password-input-wrap">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              className="form-input"
+              value={userForm.password}
+              onChange={e => setUserForm({ ...userForm, password: e.target.value })}
+              placeholder="Minimum 6 characters"
+              required
+              minLength={6}
+            />
+            <button type="button" className="password-toggle" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'}>
+              {showPassword ? <EyeOffIcon size={17} /> : <EyeIcon size={17} />}
+            </button>
+          </div>
         </div>
         <div className="form-group">
           <label className="form-label">Assigned Role</label>
@@ -345,6 +365,20 @@ export function UserModal({ onClose, userForm, setUserForm, onSubmit, loading = 
             {loading ? "Creating Account…" : "Create Account"}
           </button>
         </div>
+      </form>
+    </Modal>
+  );
+}
+
+export function EditUserModal({ user, onClose, onSave }) {
+  const [name, setName] = useState(user?.name || '');
+  const [role, setRole] = useState(user?.role || 'STAFF');
+  return (
+    <Modal title="Edit Staff Account" onClose={onClose}>
+      <form onSubmit={(event) => { event.preventDefault(); onSave({ ...user, name, role }); }}>
+        <div className="form-group"><label className="form-label">Full Name</label><input className="form-input" value={name} onChange={e => setName(e.target.value)} required /></div>
+        <div className="form-group"><label className="form-label">Assigned Role</label><select className="form-select" value={role} onChange={e => setRole(e.target.value)}><option value="STAFF">Service Advisor</option><option value="ADMIN">Super Admin</option></select></div>
+        <div className="modal-actions"><button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" type="submit">Save Changes</button></div>
       </form>
     </Modal>
   );

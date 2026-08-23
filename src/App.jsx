@@ -4,7 +4,7 @@ import './index.css';
 // Layout Components
 import Siderail from './components/Siderail';
 import TopHeader from './components/TopHeader';
-import { CustomerModal, LinkModal, InvoiceModal, ServiceCenterModal, UserModal } from './components/Modals';
+import { CustomerModal, LinkModal, InvoiceModal, ServiceCenterModal, UserModal, ConfirmModal, EditUserModal } from './components/Modals';
 
 
 // Page View Components
@@ -16,10 +16,11 @@ import ComplaintsView from './views/ComplaintsView';
 import ComparisonView from './views/ComparisonView';
 import UsersView      from './views/UsersView';
 import ReportsView    from './views/ReportsView';
+import EmailActivityView from './views/EmailActivityView';
 import PublicFeedbackView from './views/PublicFeedbackView';
 
 // Icons
-import { ZapIcon, ShieldIcon, UserIcon, MailIcon, InfoIcon, AlertTriangleIcon } from './components/Icons';
+import { ZapIcon, ShieldIcon, UserIcon, MailIcon, InfoIcon, AlertTriangleIcon, EyeIcon, EyeOffIcon } from './components/Icons';
 
 const rawApiBase = import.meta.env.VITE_API_BASE_URL || 'https://backend-mg-mwgb.onrender.com/api';
 const API_BASE = rawApiBase.endsWith('/api') ? rawApiBase : `${rawApiBase.replace(/\/$/, '')}/api`;
@@ -51,6 +52,7 @@ const SEED = {
 function LoginScreen({ onLogin }) {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
 
@@ -106,9 +108,10 @@ function LoginScreen({ onLogin }) {
           </div>
           <div className="form-group">
             <label className="form-label" htmlFor="login-password">Password</label>
+            <div className="password-input-wrap">
             <input
               id="login-password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               className="form-input"
               value={password}
               onChange={e => setPassword(e.target.value)}
@@ -116,6 +119,10 @@ function LoginScreen({ onLogin }) {
               autoComplete="current-password"
               required
             />
+            <button type="button" className="password-toggle" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'}>
+              {showPassword ? <EyeOffIcon size={17} /> : <EyeIcon size={17} />}
+            </button>
+            </div>
           </div>
           <button
             type="submit"
@@ -211,17 +218,22 @@ export default function App() {
   const [showUserModal, setShowUserModal]                   = useState(false);
   const [editingCustomer, setEditingCustomer]               = useState(null);
   const [editingComplaint, setEditingComplaint]             = useState(null);
+  const [confirmation, setConfirmation] = useState(null);
+  const [editingUser, setEditingUser] = useState(null);
 
   // Forms
   const [custForm, setCustForm] = useState({ name: '', mobile: '', email: '', vehicleNumber: '', vehicleModel: '', serviceCenter: 'Downtown Branch' });
   const [userForm, setUserForm] = useState({ name: '', email: '', password: '', role: 'STAFF' });
   const [userModalLoading, setUserModalLoading] = useState(false);
   const [userModalError, setUserModalError]     = useState('');
+  const [customerModalLoading, setCustomerModalLoading] = useState(false);
+  const [emailActivities, setEmailActivities] = useState([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [selectedComplaintId, setSelectedComplaintId] = useState('');
   const [invoiceFile, setInvoiceFile] = useState(null);
 
   useEffect(() => { if (token) fetchBackendData(); }, [token]);
+  useEffect(() => { if (token && activeTab === 'email-activity') fetchBackendData(); }, [activeTab, token]);
 
   const getCustName = (id) => {
     if (typeof id === 'object' && id?.name) return id.name;
@@ -237,11 +249,12 @@ export default function App() {
     if (!token) return;
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [cRes, lRes, cmpRes, uRes] = await Promise.all([
+      const [cRes, lRes, cmpRes, uRes, emailRes] = await Promise.all([
         fetch(`${API_BASE}/customers`, { headers }).catch(() => null),
         fetch(`${API_BASE}/feedback-links`, { headers }).catch(() => null),
         fetch(`${API_BASE}/complaints`, { headers }).catch(() => null),
         fetch(`${API_BASE}/auth/users`, { headers }).catch(() => null),
+        fetch(`${API_BASE}/email-activity?limit=100`, { headers }).catch(() => null),
       ]);
 
       if (cRes?.status === 401 || lRes?.status === 401 || cmpRes?.status === 401 || uRes?.status === 401) {
@@ -273,6 +286,10 @@ export default function App() {
         const d = await uRes.json();
         if (d.data?.length) setUsers(d.data);
       }
+      if (emailRes?.ok) {
+        const d = await emailRes.json();
+        setEmailActivities(d.data || []);
+      }
     } catch {}
   };
 
@@ -296,7 +313,7 @@ export default function App() {
       }
     } catch (err) {
       console.error('Login error:', err);
-      return `Unable to connect to backend (${err.message || 'NetworkError'}). Target: ${API_BASE}/auth/login`;
+      return 'Unable to sign in right now. Please check your connection and try again.';
     }
   };
 
@@ -320,6 +337,8 @@ export default function App() {
     e.preventDefault();
     const custName = custForm.name;
     const custEmail = custForm.email || custForm.mobile || 'customer';
+    setCustomerModalLoading(true);
+    try {
     if (editingCustomer) {
       const cId = editingCustomer._id || editingCustomer.id;
       try {
@@ -336,7 +355,9 @@ export default function App() {
         return;
       }
       addLog({ action: 'CUSTOMER_UPDATED', target: `${custForm.name} (${custForm.vehicleNumber})`, badgeClass: 'badge-blue', badgeText: 'UPDATED', description: `Updated customer record for ${custForm.name}.` });
-      showSnackbar(`✅ Customer record for ${custName} updated successfully!`, 'info');
+      const emailChanged = custForm.email.trim().toLowerCase() !== (editingCustomer.email || '').toLowerCase();
+      const vehicleChanged = custForm.vehicleNumber.trim().toUpperCase() !== (editingCustomer.vehicleNumber || editingCustomer.vehicle_number || '').toUpperCase();
+      showSnackbar(emailChanged || vehicleChanged ? `Customer updated. A new feedback invite is being sent to ${custEmail}.` : `Customer record for ${custName} updated successfully.`, 'info');
       setEditingCustomer(null);
     } else {
       try {
@@ -353,6 +374,14 @@ export default function App() {
     }
     setShowCustomerModal(false);
     setCustForm({ name: '', mobile: '', email: '', vehicleNumber: '', vehicleModel: '', serviceCenter: serviceCenters[0]?.name || 'Downtown Branch' });
+    setTimeout(fetchBackendData, 1200);
+    } finally {
+      setCustomerModalLoading(false);
+    }
+  };
+
+  const requestConfirmation = (title, message, confirmLabel, onConfirm) => {
+    setConfirmation({ title, message, confirmLabel, onConfirm });
   };
 
   const handleEditCustomer = (customer) => {
@@ -385,7 +414,10 @@ export default function App() {
 
   const handleUploadInvoice = async (e) => {
     e.preventDefault();
-    if (!invoiceFile) return alert('Select a PDF file first');
+    if (!invoiceFile) {
+      showSnackbar('Please select an invoice PDF before uploading.', 'error');
+      return;
+    }
     const targetRecord = complaints.find(c => c._id === selectedComplaintId) || customers.find(c => c._id === selectedComplaintId) || customers[0];
     const cId = targetRecord?.customerId || targetRecord?._id || 'c_' + Date.now();
     const vNum = targetRecord?.vehicleNumber || 'KA01AB1234';
@@ -421,18 +453,20 @@ export default function App() {
 
   // Delete Voice Note (so customer can re-record latest audio)
   const handleDeleteVoiceNote = (complaintId) => {
-    if (window.confirm('Delete incorrect voice recording? The customer can re-record audio via their public feedback link and the latest response will be used.')) {
+    requestConfirmation('Delete voice recording', 'Delete this voice recording? The customer can submit a new response using their feedback link.', 'Delete recording', () => {
       setComplaints(prev => prev.filter(c => c._id !== complaintId));
       addLog({ action: 'VOICE_NOTE_DELETED', target: `Complaint #${complaintId.substring(0, 8)}`, badgeClass: 'badge-coral', badgeText: 'VOICE DELETED', description: 'Deleted incorrect voice recording so customer can submit latest audio response.' });
-    }
+      showSnackbar('Voice recording deleted.', 'info');
+    });
   };
 
   // Delete Wrong Invoice PDF
   const handleDeleteInvoicePdf = (complaintId) => {
-    if (window.confirm('Delete wrongly uploaded repair invoice PDF for this customer vehicle?')) {
+    requestConfirmation('Delete invoice PDF', 'Delete this invoice PDF? This cannot be undone from the dashboard.', 'Delete invoice', () => {
       setComplaints(prev => prev.filter(c => c._id !== complaintId));
       addLog({ action: 'INVOICE_PDF_DELETED', target: `Complaint #${complaintId.substring(0, 8)}`, badgeClass: 'badge-coral', badgeText: 'PDF DELETED', description: 'Deleted wrongly uploaded repair invoice PDF.' });
-    }
+      showSnackbar('Invoice PDF deleted.', 'info');
+    });
   };
 
 
@@ -552,7 +586,7 @@ export default function App() {
     : historyLogs;
 
   const handleDeleteCustomer = async (id) => {
-    if (window.confirm('Are you sure you want to delete this customer record?')) {
+    requestConfirmation('Delete customer record', 'Delete this customer and vehicle record? This cannot be undone.', 'Delete customer', async () => {
       if (token) {
         try {
           await fetch(`${API_BASE}/customers/${id}`, {
@@ -563,21 +597,24 @@ export default function App() {
       }
       setCustomers(prev => prev.filter(c => c._id !== id && c.id !== id));
       addLog({ action: 'CUSTOMER_DELETED', target: `Customer #${(id || '').toString().substring(0, 8)}`, badgeClass: 'badge-coral', badgeText: 'DELETED', description: 'Deleted customer record.' });
-    }
+      showSnackbar('Customer record deleted.', 'info');
+    });
   };
 
   const handleDeleteUser = async (id) => {
-    if (window.confirm('Are you sure you want to delete this staff user account?')) {
+    requestConfirmation('Delete staff account', 'Delete this staff account from the dashboard?', 'Delete account', () => {
       setUsers(prev => prev.filter(u => u._id !== id && u.id !== id));
       addLog({ action: 'USER_DELETED', target: `Staff User #${(id || '').toString().substring(0, 8)}`, badgeClass: 'badge-coral', badgeText: 'DELETED', description: 'Deleted staff user account.' });
-    }
+      showSnackbar('Staff account deleted.', 'info');
+    });
   };
 
   const handleDeleteLink = async (id) => {
-    if (window.confirm('Are you sure you want to delete this feedback token link?')) {
+    requestConfirmation('Delete feedback link', 'Delete this secure feedback link? The customer will no longer be able to use it.', 'Delete link', () => {
       setFeedbackLinks(prev => prev.filter(l => l._id !== id && l.id !== id));
       addLog({ action: 'LINK_DELETED', target: `Token #${(id || '').toString().substring(0, 8)}`, badgeClass: 'badge-coral', badgeText: 'DELETED', description: 'Deleted feedback link token.' });
-    }
+      showSnackbar('Feedback link deleted.', 'info');
+    });
   };
 
   const handleEditServiceCenter = (sc) => {
@@ -586,11 +623,14 @@ export default function App() {
   };
 
   const handleEditUser = (u) => {
-    const newName = window.prompt('Enter staff user name:', u.name);
-    if (!newName) return;
-    const newRole = window.confirm(`Change role for ${newName}? Click OK for Super Admin, Cancel for Service Advisor.`) ? 'ADMIN' : 'STAFF';
-    setUsers(prev => prev.map(item => (item._id === u._id || item.id === u.id) ? { ...item, name: newName, role: newRole } : item));
-    addLog({ action: 'USER_UPDATED', target: newName, badgeClass: 'badge-blue', badgeText: 'USER UPDATED', description: `Updated staff user account (${newName}).` });
+    setEditingUser(u);
+  };
+
+  const saveEditedUser = (updatedUser) => {
+    setUsers(prev => prev.map(item => (item._id === updatedUser._id || item.id === updatedUser.id) ? updatedUser : item));
+    addLog({ action: 'USER_UPDATED', target: updatedUser.name, badgeClass: 'badge-blue', badgeText: 'USER UPDATED', description: `Updated staff user account (${updatedUser.name}).` });
+    showSnackbar('Staff account updated.', 'success');
+    setEditingUser(null);
   };
 
   // ── Render current page view ─────────────────────────────────────────────────
@@ -632,6 +672,7 @@ export default function App() {
           onUploadInvoice={() => setShowInvoiceModal(true)}
         />
       );
+      case 'email-activity': return <EmailActivityView activities={emailActivities} searchQuery={q} />;
 
       case 'users': return (
         <UsersView
@@ -697,8 +738,11 @@ export default function App() {
           onSubmit={handleCreateCustomer}
           serviceCenters={serviceCenters}
           isEditing={!!editingCustomer}
+          loading={customerModalLoading}
         />
       )}
+      {editingUser && <EditUserModal user={editingUser} onClose={() => setEditingUser(null)} onSave={saveEditedUser} />}
+      {confirmation && <ConfirmModal {...confirmation} onClose={() => setConfirmation(null)} />}
       {showLinkModal && (
         <LinkModal
           onClose={() => setShowLinkModal(false)}

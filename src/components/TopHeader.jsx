@@ -8,6 +8,7 @@ const PAGE_TITLES = {
   links:      { title: 'Feedback Tokens',      subtitle: 'Public invite links' },
   complaints: { title: 'Voice & Invoices',     subtitle: 'Recordings & PDFs' },
   comparison: { title: 'AI Audit Engine',      subtitle: 'Semantic matching' },
+  'email-activity': { title: 'Email Activity', subtitle: 'Automated message timeline' },
   users:      { title: 'Staff & Users',        subtitle: 'Accounts & roles' },
   reports:    { title: 'Analytics',            subtitle: 'Performance reports' },
 };
