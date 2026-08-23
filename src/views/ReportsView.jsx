@@ -60,6 +60,7 @@ export default function ReportsView({
       customers: branchCusts.length,
       audits: branchAudits,
       score: branchScore,
+      rating: apiBranch?.avgRating ?? null,
       flags: branchFlags,
       health: branchFlags === 0 ? 'Healthy' : 'Attention Needed'
     };
@@ -157,6 +158,7 @@ export default function ReportsView({
                 <th>Location</th>
                 <th>Audits</th>
                 <th>Match Score</th>
+                <th>Customer Rating</th>
                 <th>Customers</th>
                 <th>Fraud Flags</th>
                 <th>Health</th>
@@ -181,6 +183,7 @@ export default function ReportsView({
                   <td>
                     <MiniBar value={b.score} color={b.score >= 95 ? 'var(--green)' : b.score >= 85 ? 'var(--amber)' : 'var(--coral)'} />
                   </td>
+                  <td><span className={`stat-badge ${b.rating === null ? 'badge-gray' : b.rating >= 4 ? 'badge-green' : 'badge-amber'}`}>{b.rating === null ? 'No ratings' : `★ ${b.rating}/5`}</span></td>
                   <td style={{ fontWeight: 600 }}>{b.customers}</td>
                   <td>
                     {b.flags === 0
