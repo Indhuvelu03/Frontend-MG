@@ -307,7 +307,33 @@ export default function App() {
 
       if (cmpRes?.ok) {
         const d = await cmpRes.json();
-        setComplaints(d.data || []);
+        const complaintList = d.data || [];
+        // A complaint record does not contain the AI result itself. Load its
+        // persisted comparison instead of rendering placeholder repair items.
+        const complaintsWithAudits = await Promise.all(complaintList.map(async (complaint) => {
+          try {
+            const response = await fetch(`${API_BASE}/comparison/${complaint._id}`, { headers });
+            if (!response.ok) return complaint;
+            const result = await response.json();
+            const audit = result.data;
+            if (!audit) return complaint;
+            return {
+              ...complaint,
+              aiComparison: {
+                matchPercentage: Math.round(Number(audit.score) || 0),
+                conclusion: audit.status,
+                matchedItems: audit.matchedIssues || [],
+                missingIssues: audit.missingIssues || [],
+                extraInvoiceItems: audit.extraInvoiceItems || [],
+                analysis: audit.summary || '',
+                reportUrl: audit.reportUrl || null,
+              },
+            };
+          } catch {
+            return complaint;
+          }
+        }));
+        setComplaints(complaintsWithAudits);
       }
 
       if (uRes?.ok) {

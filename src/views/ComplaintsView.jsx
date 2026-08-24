@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PlusIcon, ZapIcon, CpuIcon, TrashIcon, EditIcon } from '../components/Icons';
+import { PlusIcon, CpuIcon, TrashIcon } from '../components/Icons';
 import Pagination from '../components/Pagination';
 
 export default function ComplaintsView({ complaints = [], getCustName, onUploadInvoice, onDeleteVoiceNote, onDeleteInvoicePdf, setActiveTab, searchQuery }) {
@@ -64,8 +64,12 @@ export default function ComplaintsView({ complaints = [], getCustName, onUploadI
         </div>
       ) : (
         <>
-          {currentComplaints.map(c => (
-            <div className="card" key={c._id}>
+          {currentComplaints.map(c => {
+            const audit = c.aiComparison;
+            const score = audit?.matchPercentage;
+            const conclusion = audit?.conclusion?.replaceAll('_', ' ') || 'PROCESSING';
+            const badgeClass = audit?.conclusion === 'FULL_MATCH' ? 'badge-green' : audit?.conclusion === 'MISMATCH' ? 'badge-coral' : 'badge-amber';
+            return <div className="card" key={c._id}>
               <div className="card-header">
                 <div>
                   <h3 className="card-title">
@@ -76,8 +80,8 @@ export default function ComplaintsView({ complaints = [], getCustName, onUploadI
                   <span className="card-subtitle">Customer: {getCustName(c.customerId)}</span>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <span className="stat-badge badge-green">✓ VERIFIED MATCH</span>
-                  <span className="stat-badge badge-green">{c.aiComparison?.matchPercentage ?? 100}%</span>
+                  <span className={`stat-badge ${badgeClass}`}>{conclusion}</span>
+                  {audit && <span className={`stat-badge ${badgeClass}`}>{score}%</span>}
                 </div>
               </div>
 
@@ -126,16 +130,16 @@ export default function ComplaintsView({ complaints = [], getCustName, onUploadI
                         <span className="match-label">Match Score</span>
                       </div>
                       <span className="stat-badge badge-green" style={{ fontSize: '0.85rem', padding: '0.25rem 0.65rem' }}>
-                        {c.aiComparison?.matchPercentage ?? 100}%
+                        {audit ? `${score}%` : '—'}
                       </span>
                     </div>
                     <p className="match-analysis">
-                      {c.aiComparison?.analysis || 'Semantic Audit Complete: Verified billed repair line items against customer voice complaint recording.'}
+                      {audit?.analysis || 'Waiting for transcription, OCR, and the AI evidence comparison to complete.'}
                     </p>
-                    {c.aiComparison?.matchedItems && (
+                    {audit?.matchedItems?.length > 0 && (
                       <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                        {c.aiComparison.matchedItems.map((item, i) => (
-                          <span key={i} className="stat-badge badge-green">✓ {item}</span>
+                        {audit.matchedItems.map((item, i) => (
+                          <span key={i} className="stat-badge badge-green">✓ {item.invoiceItem || item}</span>
                         ))}
                       </div>
                     )}
@@ -150,7 +154,7 @@ export default function ComplaintsView({ complaints = [], getCustName, onUploadI
                 </div>
               </div>
             </div>
-          ))}
+          })}
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <Pagination
               currentPage={currentPage}
