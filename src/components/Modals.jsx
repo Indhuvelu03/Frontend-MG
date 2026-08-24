@@ -171,9 +171,8 @@ export function LinkModal({ onClose, customers = [], selectedCustomerId, setSele
 }
 
 // Upload Invoice PDF Modal
-export function InvoiceModal({ onClose, complaints = [], customers = [], selectedComplaintId, setSelectedComplaintId, setInvoiceFile, onSubmit, getCustName }) {
+export function InvoiceModal({ onClose, complaints = [], selectedComplaintId, setSelectedComplaintId, setInvoiceFile, onSubmit, getCustName }) {
   const hasComplaints = complaints.length > 0;
-  const hasCustomers = customers.length > 0;
 
   return (
     <Modal title="Upload Repair Invoice PDF" onClose={onClose}>
@@ -188,7 +187,7 @@ export function InvoiceModal({ onClose, complaints = [], customers = [], selecte
             fontWeight: 700,
             marginBottom: '1rem',
           }}>
-            ⚠️ No customer feedback records have been submitted yet. You can select a registered customer vehicle below, or ask the customer to submit voice or written feedback first.
+            ⚠️ An invoice can be uploaded only after the customer submits voice or written feedback. This ensures the AI can compare the invoice against that feedback.
           </div>
         )}
         <div className="form-group">
@@ -204,14 +203,8 @@ export function InvoiceModal({ onClose, complaints = [], customers = [], selecte
                   {c.vehicleNumber} — {getCustName ? getCustName(c.customerId) : 'Customer'}
                 </option>
               ))
-            ) : hasCustomers ? (
-              customers.map(c => (
-                <option key={c._id} value={c._id}>
-                  {c.vehicleNumber} — {c.name} ({c.vehicleModel})
-                </option>
-              ))
             ) : (
-              <option value="">-- No vehicle records available --</option>
+              <option value="">-- No submitted feedback records available --</option>
             )}
           </select>
         </div>
@@ -227,7 +220,7 @@ export function InvoiceModal({ onClose, complaints = [], customers = [], selecte
         </div>
         <div className="modal-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary" disabled={!hasCustomers && !hasComplaints}>
+          <button type="submit" className="btn btn-primary" disabled={!hasComplaints}>
             Upload &amp; Run AI Audit
           </button>
         </div>

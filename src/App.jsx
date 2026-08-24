@@ -239,6 +239,14 @@ export default function App() {
   useEffect(() => { if (token) fetchBackendData(); }, [token]);
   useEffect(() => { if (token && activeTab === 'email-activity') fetchBackendData(); }, [activeTab, token]);
 
+  // A browser select can display its first option while its controlled state is
+  // still empty. Always initialise it with a real complaint ID for invoice upload.
+  useEffect(() => {
+    if (!selectedComplaintId && complaints.length) {
+      setSelectedComplaintId(complaints[0]._id);
+    }
+  }, [complaints, selectedComplaintId]);
+
   // Customer feedback is submitted from a separate public browser page. Keep the
   // admin view in sync when the user returns to it, and while it remains open.
   useEffect(() => {
@@ -412,10 +420,12 @@ export default function App() {
     }
   };
 
-  const openInvoiceUpload = async () => {
+  const openInvoiceUpload = () => {
     // Fetch first so a voice/text complaint submitted from the public link is
     // immediately available in the invoice selector.
-    await fetchBackendData();
+    if (complaints.length) setSelectedComplaintId(complaints[0]._id);
+    setInvoiceFile(null);
+    fetchBackendData();
     setShowInvoiceModal(true);
   };
 
@@ -458,17 +468,20 @@ export default function App() {
       showSnackbar('Please select an invoice PDF before uploading.', 'error');
       return;
     }
-    const targetRecord = complaints.find(c => c._id === selectedComplaintId) || customers.find(c => c._id === selectedComplaintId) || customers[0];
-    const cId = targetRecord?.customerId || targetRecord?._id || 'c_' + Date.now();
-    const vNum = targetRecord?.vehicleNumber || 'KA01AB1234';
+    const targetRecord = complaints.find(c => c._id === selectedComplaintId);
+    if (!targetRecord) {
+      showSnackbar('Select a submitted customer feedback record before uploading an invoice.', 'error');
+      return;
+    }
+    const vNum = targetRecord.vehicleNumber;
 
     const formData = new FormData();
     formData.append('complaintId', selectedComplaintId);
     formData.append('file', invoiceFile);
     try {
       const res = await fetch(`${API_BASE}/invoices/upload`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData });
-      const data = await res.json();
-      if (!data.success) throw new Error();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.message || `Upload failed (HTTP ${res.status})`);
     } catch (error) {
       showSnackbar(`Invoice upload failed: ${error.message || 'Please try again.'}`, 'error');
       return;
@@ -476,6 +489,8 @@ export default function App() {
     addLog({ action: 'INVOICE_UPLOADED', target: invoiceFile.name, badgeClass: 'badge-amber', badgeText: 'PDF UPLOADED', description: `Uploaded invoice PDF (${invoiceFile.name}) and completed AI semantic audit for vehicle ${vNum}.` });
     setShowInvoiceModal(false);
     setActiveTab('comparison');
+    showSnackbar('Invoice uploaded. Text extraction and AI audit have started.', 'success');
+    setTimeout(fetchBackendData, 1000);
   };
 
   // Delete Voice Note (so customer can re-record latest audio)
