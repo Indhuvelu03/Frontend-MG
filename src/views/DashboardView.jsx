@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { MicIcon, PlusIcon, ZapIcon, UsersIcon, CarIcon, LinkIcon, CpuIcon, ExternalLinkIcon } from '../components/Icons';
 import Pagination from '../components/Pagination';
 
-export default function DashboardView({ customers, complaints, historyLogs, getCustName, onNewCustomer, onNewLink, setActiveTab, searchQuery }) {
+export default function DashboardView({ customers, complaints, historyLogs, getCustName, onNewCustomer, onNewLink, onInspectComplaint, setActiveTab, searchQuery }) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
@@ -151,7 +151,7 @@ export default function DashboardView({ customers, complaints, historyLogs, getC
                         <td><span className={`stat-badge ${auditStatus(c) === 'COMPLETE' ? 'badge-green' : auditStatus(c) === 'ACTION NEEDED' ? 'badge-coral' : 'badge-amber'}`}>{auditStatus(c)}</span></td>
                         <td><span className={`stat-badge ${typeof (c.aiComparison?.matchPercentage ?? c.comparisonScore) === 'number' ? 'badge-green' : 'badge-amber'}`}>{typeof (c.aiComparison?.matchPercentage ?? c.comparisonScore) === 'number' ? `${c.aiComparison?.matchPercentage ?? c.comparisonScore}%` : '—'}</span></td>
                         <td style={{ textAlign: 'right' }}>
-                          <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('comparison')}>Inspect</button>
+                          <button className="btn btn-secondary btn-sm" onClick={() => onInspectComplaint ? onInspectComplaint(c._id) : setActiveTab('comparison')}>View details</button>
                         </td>
                       </tr>
                     ))}

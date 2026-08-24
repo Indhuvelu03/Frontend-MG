@@ -28,14 +28,14 @@ export default function HistoryView({ historyLogs, complaints = [], customers = 
       pdfStatus: 'PDF_PARSED',
       pdfBadgeText: '✓ PDF Parsed',
       pdfBadgeClass: 'badge-amber',
-      matchScore: c.aiComparison?.matchPercentage ?? 100,
-      matchConclusion: c.aiComparison?.conclusion || 'FULL_MATCH',
-      matchBadgeText: `${c.aiComparison?.matchPercentage ?? 100}% FULL MATCH`,
-      matchBadgeClass: 'badge-green',
+      matchScore: c.aiComparison?.matchPercentage ?? null,
+      matchConclusion: c.aiComparison?.conclusion || 'PROCESSING',
+      matchBadgeText: c.aiComparison ? `${c.aiComparison.matchPercentage}% ${c.aiComparison.conclusion.replaceAll('_', ' ')}` : 'PROCESSING',
+      matchBadgeClass: c.aiComparison?.conclusion === 'FULL_MATCH' ? 'badge-green' : c.aiComparison?.conclusion === 'MISMATCH' ? 'badge-coral' : 'badge-amber',
       performedBy: actor,
       transcript: c.transcript,
-      matchedItems: c.aiComparison?.matchedItems || ['Front Brake Pad Replacement', 'Engine Oil Change', 'Wiper Fluid'],
-      analysis: c.aiComparison?.analysis || 'Semantic Audit Complete: 3 of 3 billed repair line items verified.',
+      matchedItems: c.aiComparison?.matchedItems || [],
+      analysis: c.aiComparison?.analysis || 'Audit evidence is still being prepared.',
       relatedLogs,
     };
   });
@@ -170,7 +170,7 @@ export default function HistoryView({ historyLogs, complaints = [], customers = 
                                   <strong>AI Verdict:</strong> {session.analysis}
                                   <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                                     {session.matchedItems.map((item, idx) => (
-                                      <span key={idx} className="stat-badge badge-green">✓ {item}</span>
+                                      <span key={idx} className="stat-badge badge-green">✓ {item.invoiceItem || item.complaintIssue || item}</span>
                                     ))}
                                   </div>
                                 </div>

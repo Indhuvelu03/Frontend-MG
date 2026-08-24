@@ -754,7 +754,7 @@ export default function App() {
   // ── Render current page view ─────────────────────────────────────────────────
   const renderView = () => {
     switch (activeTab) {
-      case 'dashboard':  return <DashboardView customers={filteredCustomers} complaints={filteredComplaints} historyLogs={filteredHistory} getCustName={getCustName} setActiveTab={setActiveTab} onNewCustomer={() => { setEditingCustomer(null); setCustForm({ name: '', mobile: '', email: '', vehicleNumber: '', vehicleModel: '', serviceCenter: serviceCenters[0]?.name || 'Downtown Branch' }); setShowCustomerModal(true); }} onNewLink={() => setShowLinkModal(true)} searchQuery={q} />;
+      case 'dashboard':  return <DashboardView customers={filteredCustomers} complaints={filteredComplaints} historyLogs={filteredHistory} getCustName={getCustName} setActiveTab={setActiveTab} onInspectComplaint={(complaintId) => { setSelectedComplaintId(complaintId); setActiveTab('comparison'); }} onNewCustomer={() => { setEditingCustomer(null); setCustForm({ name: '', mobile: '', email: '', vehicleNumber: '', vehicleModel: '', serviceCenter: serviceCenters[0]?.name || 'Downtown Branch' }); setShowCustomerModal(true); }} onNewLink={() => setShowLinkModal(true)} searchQuery={q} />;
       case 'history':    return <HistoryView historyLogs={filteredHistory} complaints={filteredComplaints} customers={filteredCustomers} getCustName={getCustName} searchQuery={q} />;
 
       case 'customers':  return (
@@ -818,7 +818,7 @@ export default function App() {
           setSearchQuery={setSearchQuery}
         />
       );
-      default: return <DashboardView customers={filteredCustomers} complaints={filteredComplaints} historyLogs={filteredHistory} getCustName={getCustName} setActiveTab={setActiveTab} onNewCustomer={() => { setEditingCustomer(null); setShowCustomerModal(true); }} onNewLink={() => setShowLinkModal(true)} searchQuery={q} />;
+      default: return <DashboardView customers={filteredCustomers} complaints={filteredComplaints} historyLogs={filteredHistory} getCustName={getCustName} setActiveTab={setActiveTab} onInspectComplaint={(complaintId) => { setSelectedComplaintId(complaintId); setActiveTab('comparison'); }} onNewCustomer={() => { setEditingCustomer(null); setShowCustomerModal(true); }} onNewLink={() => setShowLinkModal(true)} searchQuery={q} />;
     }
   };
 
