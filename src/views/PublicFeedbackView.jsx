@@ -64,7 +64,12 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
-      const mediaRecorder = new MediaRecorder(stream);
+      const preferredMimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : '';
+      const mediaRecorder = preferredMimeType
+        ? new MediaRecorder(stream, { mimeType: preferredMimeType })
+        : new MediaRecorder(stream);
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -73,7 +78,9 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/mp3' });
+        // Browsers normally record WebM/Opus, not MP3. Preserve the real format
+        // so Supabase Storage and the transcription worker can read it reliably.
+        const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType || 'audio/webm' });
         setRecordedBlob(audioBlob);
         stream.getTracks().forEach(track => track.stop());
       };
@@ -120,7 +127,12 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
 
     let fileToSend = null;
     if ((feedbackMode === 'audio' || feedbackMode === 'both') && audioMode === 'record' && recordedBlob) {
-      fileToSend = new File([recordedBlob], `complaint_${Date.now()}.mp3`, { type: 'audio/mp3' });
+      const isWebm = recordedBlob.type.includes('webm');
+      fileToSend = new File(
+        [recordedBlob],
+        `complaint_${Date.now()}.${isWebm ? 'webm' : 'm4a'}`,
+        { type: recordedBlob.type || 'audio/webm' },
+      );
     } else if ((feedbackMode === 'audio' || feedbackMode === 'both') && audioMode === 'upload' && uploadedFile) {
       fileToSend = uploadedFile;
     }

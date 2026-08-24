@@ -188,7 +188,7 @@ export function InvoiceModal({ onClose, complaints = [], customers = [], selecte
             fontWeight: 700,
             marginBottom: '1rem',
           }}>
-            ⚠️ No voice complaint records submitted yet. You can select a registered customer vehicle below or submit customer voice feedback first.
+            ⚠️ No customer feedback records have been submitted yet. You can select a registered customer vehicle below, or ask the customer to submit voice or written feedback first.
           </div>
         )}
         <div className="form-group">

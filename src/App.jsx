@@ -239,6 +239,19 @@ export default function App() {
   useEffect(() => { if (token) fetchBackendData(); }, [token]);
   useEffect(() => { if (token && activeTab === 'email-activity') fetchBackendData(); }, [activeTab, token]);
 
+  // Customer feedback is submitted from a separate public browser page. Keep the
+  // admin view in sync when the user returns to it, and while it remains open.
+  useEffect(() => {
+    if (!token) return undefined;
+    const refreshOnFocus = () => fetchBackendData();
+    const refreshTimer = window.setInterval(refreshOnFocus, 15000);
+    window.addEventListener('focus', refreshOnFocus);
+    return () => {
+      window.clearInterval(refreshTimer);
+      window.removeEventListener('focus', refreshOnFocus);
+    };
+  }, [token]);
+
   const getCustName = (id) => {
     if (typeof id === 'object' && id?.name) return id.name;
     return customers.find(c => c._id === id || c.id === id)?.name || 'Customer';
@@ -397,6 +410,13 @@ export default function App() {
     } finally {
       setCustomerModalLoading(false);
     }
+  };
+
+  const openInvoiceUpload = async () => {
+    // Fetch first so a voice/text complaint submitted from the public link is
+    // immediately available in the invoice selector.
+    await fetchBackendData();
+    setShowInvoiceModal(true);
   };
 
   const requestConfirmation = (title, message, confirmLabel, onConfirm) => {
@@ -711,7 +731,7 @@ export default function App() {
         <ComplaintsView
           complaints={filteredComplaints}
           getCustName={getCustName}
-          onUploadInvoice={() => setShowInvoiceModal(true)}
+          onUploadInvoice={openInvoiceUpload}
           onDeleteVoiceNote={handleDeleteVoiceNote}
           onDeleteInvoicePdf={handleDeleteInvoicePdf}
 
@@ -726,7 +746,7 @@ export default function App() {
           getCustName={getCustName}
           selectedComplaintId={selectedComplaintId}
           setSelectedComplaintId={setSelectedComplaintId}
-          onUploadInvoice={() => setShowInvoiceModal(true)}
+          onUploadInvoice={openInvoiceUpload}
         />
       );
       case 'email-activity': return <EmailActivityView activities={emailActivities} searchQuery={q} />;
