@@ -5,11 +5,16 @@ import Pagination from '../components/Pagination';
 export default function ComplaintsView({ complaints = [], getCustName, onUploadInvoice, onDeleteVoiceNote, onDeleteInvoicePdf, setActiveTab, searchQuery }) {
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedComplaintId, setSelectedComplaintId] = useState('all');
   const itemsPerPage = 3;
+
+  const visibleComplaints = selectedComplaintId === 'all'
+    ? complaints
+    : complaints.filter(complaint => complaint._id === selectedComplaintId);
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentComplaints = complaints.slice(indexOfFirstItem, indexOfLastItem);
+  const currentComplaints = visibleComplaints.slice(indexOfFirstItem, indexOfLastItem);
 
   return (
     <div>
@@ -26,7 +31,30 @@ export default function ComplaintsView({ complaints = [], getCustName, onUploadI
         </button>
       </div>
 
-      {complaints.length === 0 ? (
+      {complaints.length > 0 && (
+        <div className="card" style={{ padding: '0.85rem 1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <label className="form-label" htmlFor="complaint-record" style={{ margin: 0, whiteSpace: 'nowrap' }}>View customer record</label>
+          <select
+            id="complaint-record"
+            className="form-select"
+            value={selectedComplaintId}
+            onChange={event => {
+              setSelectedComplaintId(event.target.value);
+              setCurrentPage(1);
+            }}
+            style={{ maxWidth: '420px', flex: '1 1 280px' }}
+          >
+            <option value="all">All submitted feedback records ({complaints.length})</option>
+            {complaints.map(complaint => (
+              <option key={complaint._id} value={complaint._id}>
+                {complaint.vehicleNumber} — {getCustName(complaint.customerId)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {visibleComplaints.length === 0 ? (
         <div className="card">
           <div className="empty-state">
             <span className="empty-state-icon">🎙️</span>
@@ -126,7 +154,7 @@ export default function ComplaintsView({ complaints = [], getCustName, onUploadI
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <Pagination
               currentPage={currentPage}
-              totalItems={complaints.length}
+              totalItems={visibleComplaints.length}
               itemsPerPage={itemsPerPage}
               onPageChange={page => setCurrentPage(page)}
             />
