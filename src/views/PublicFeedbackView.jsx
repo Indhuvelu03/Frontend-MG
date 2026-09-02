@@ -16,6 +16,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
   const [notes, setNotes] = useState('');
   const [tokenData, setTokenData] = useState(null);
   const [inputVehicleNumber, setInputVehicleNumber] = useState('');
+  const [voiceConsent, setVoiceConsent] = useState(false);
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -143,6 +144,10 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
       setErrorMessage(needsText && needsAudio ? 'Please provide both written feedback and a voice recording.' : needsText ? 'Please enter at least 10 characters of feedback.' : 'Please record or upload a voice note.');
       return;
     }
+    if (needsAudio && !voiceConsent) {
+      setErrorMessage('Please confirm your consent before submitting a voice recording.');
+      return;
+    }
 
     setSubmitting(true);
 
@@ -150,6 +155,7 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
       const formData = new FormData();
       formData.append('vehicleNumber', targetVehicle);
       if (fileToSend) formData.append('audio', fileToSend);
+      if (fileToSend) formData.append('voiceConsent', 'true');
       if (needsText) formData.append('feedbackText', notes.trim());
 
       const res = await fetch(`/api/public/feedback/${token}`, {
@@ -511,11 +517,16 @@ export default function PublicFeedbackView({ token, customers = [], feedbackLink
                 </div>
               </div>}
 
+              {(feedbackMode === 'audio' || feedbackMode === 'both') && <label style={{ display: 'flex', gap: '.65rem', alignItems: 'flex-start', padding: '.75rem', marginBottom: '1rem', border: '1px solid #cbd5e1', borderRadius: '10px', background: '#f8fafc', cursor: 'pointer' }}>
+                <input type="checkbox" checked={voiceConsent} onChange={event => setVoiceConsent(event.target.checked)} style={{ marginTop: '.18rem' }} />
+                <span style={{ fontSize: '.78rem', lineHeight: 1.55, color: 'var(--text-muted)' }}>I consent to this voice recording being securely processed for service transcription and invoice verification. The recording will be retained only for the configured service-audit period.</span>
+              </label>}
+
               <button
                 type="submit"
                 className="btn btn-primary btn-full"
                 style={{ padding: '0.9rem', fontSize: '0.95rem', borderRadius: '10px', boxShadow: '0 8px 18px rgba(37,99,235,.2)' }}
-                disabled={!feedbackReady || submitting}
+                disabled={!feedbackReady || submitting || ((feedbackMode === 'audio' || feedbackMode === 'both') && !voiceConsent)}
               >
                 {submitting ? 'Submitting Feedback…' : 'Submit Feedback'}
               </button>

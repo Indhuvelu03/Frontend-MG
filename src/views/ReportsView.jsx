@@ -1,238 +1,37 @@
 import React from 'react';
-import { ReportsIcon, ZapIcon, CarIcon, CpuIcon, ExternalLinkIcon, CheckIcon, AlertTriangleIcon } from '../components/Icons';
+import { ReportsIcon, CpuIcon, CheckIcon, MailIcon, ShieldIcon, ExternalLinkIcon } from '../components/Icons';
 
-function MiniBar({ value, max = 100, color = 'var(--green)' }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-      <div style={{
-        width: '80px',
-        height: '5px',
-        background: '#F4F4F5',
-        borderRadius: '9999px',
-        overflow: 'hidden',
-      }}>
-        <div style={{ width: `${(value / max) * 100}%`, height: '100%', background: color, borderRadius: '9999px' }} />
-      </div>
-      <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{value}%</span>
+const n = value => new Intl.NumberFormat('en-IN').format(Number(value || 0));
+const money = value => `₹${new Intl.NumberFormat('en-IN', { maximumFractionDigits:0 }).format(Number(value || 0))}`;
+const score = value => value == null ? '—' : `${value}%`;
+function Bar({ value = 0, color = '#059669' }) { return <div style={{ display:'flex', alignItems:'center', gap:7 }}><div style={{ width:74,height:5,background:'#F4F4F5' }}><div style={{ width:`${Math.min(100,Math.max(0,value))}%`,height:'100%',background:color }}/></div><strong style={{ fontSize:'.75rem' }}>{value}%</strong></div>; }
+function Metric({ label, value, note, color='#18181B' }) { return <div className="card" style={{ padding:'1rem' }}><div style={{ fontSize:'.68rem',fontWeight:750,color:'#71717A',textTransform:'uppercase' }}>{label}</div><div style={{ fontSize:'1.55rem',fontWeight:850,color,marginTop:4 }}>{value}</div><div style={{ fontSize:'.7rem',color:'#71717A',marginTop:3 }}>{note}</div></div>; }
+
+export default function ReportsView({ analytics, reportFilters, setReportFilters, onExport, setActiveTab, setSearchQuery }) {
+  if (!analytics) return <div className="card"><div className="empty-state"><div className="empty-state-msg">Preparing verified executive report…</div></div></div>;
+  const o=analytics.overview||{}, inv=analytics.invoices||{}, feedback=analytics.feedback||{}, comms=analytics.communications||{};
+  const centers=analytics.serviceCenterPerformance||[], dealers=analytics.dealerRanking||[], channels=comms.channels||[];
+  const setPreset = days => { const to=new Date(); const from=new Date(to.getTime()-(days-1)*86400000); setReportFilters({from:from.toISOString().slice(0,10),to:to.toISOString().slice(0,10)}); };
+  const openCenter = name => { setSearchQuery?.(name); setActiveTab?.('customers'); };
+  return <div>
+    <div className="page-header"><div><h1 className="page-title">Executive Analytics & Reports</h1><p className="page-subtitle">Tenant-aware operational, financial, customer and communication verification</p></div><div className="page-actions"><button className="btn btn-secondary" onClick={()=>onExport('csv')}><ReportsIcon size={14}/> CSV</button><button className="btn btn-primary" onClick={()=>onExport('pdf')}><ReportsIcon size={14}/> PDF Report</button></div></div>
+    <div style={{ background:'#fff',border:'1px solid #E4E4E7',padding:'.8rem 1rem',marginBottom:'1rem',display:'flex',justifyContent:'space-between',gap:'1rem',alignItems:'center',flexWrap:'wrap' }}><div style={{display:'flex',gap:'.45rem',alignItems:'center',flexWrap:'wrap'}}>{[7,30,90].map(days=><button key={days} className="btn btn-secondary btn-sm" onClick={()=>setPreset(days)}>{days} days</button>)}<input className="form-input" type="date" value={reportFilters.from} onChange={e=>setReportFilters({...reportFilters,from:e.target.value})} style={{width:140,padding:'.38rem'}}/><span>to</span><input className="form-input" type="date" value={reportFilters.to} onChange={e=>setReportFilters({...reportFilters,to:e.target.value})} style={{width:140,padding:'.38rem'}}/></div><span className="stat-badge badge-green"><CheckIcon size={12}/> Live Supabase report</span></div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:'.8rem'}}>
+      <Metric label="Audit completion" value={`${o.auditCompletionRate||0}%`} note={`${n(o.completedAudits)} audits / ${n(o.complaints)} complaints`} color="#059669"/>
+      <Metric label="Invoice value" value={money(inv.totalValue)} note={`${n(inv.parsed)} parsed of ${n(inv.uploaded)} uploaded`} color="#D97706"/>
+      <Metric label="High-risk value" value={money(inv.flaggedInvoiceValue)} note={`${n(o.fraudFlags)} high-risk comparisons`} color={o.fraudFlags?'#DC2626':'#059669'}/>
+      <Metric label="Feedback response" value={`${feedback.responseRate||0}%`} note={`${n(feedback.submitted)} of ${n(feedback.generated)} invitations`} color="#7C3AED"/>
+      <Metric label="Delivery rate" value={`${comms.deliveryRate||0}%`} note={`${n(comms.failed)} failed / ${n(comms.attempts)} attempts`} color={comms.failed?'#DC2626':'#059669'}/>
+      <Metric label="Open backlog" value={n(o.openCases)} note={`${n(o.slaBreaches)} SLA breaches`} color={o.slaBreaches?'#DC2626':'#059669'}/>
+      <Metric label="Resolution time" value={o.averageResolutionHours==null?'—':`${o.averageResolutionHours}h`} note="Based on resolved lifecycle timestamps" color="#2563EB"/>
+      <Metric label="Customer rating" value={o.averageRating==null?'—':`${o.averageRating}/5`} note={`${n(o.ratingCount)} resolved-case ratings`} color="#0891B2"/>
     </div>
-  );
-}
-
-export default function ReportsView({
-  customers = [],
-  complaints = [],
-  feedbackLinks = [],
-  serviceCenters = [],
-  analytics = null,
-  setActiveTab,
-  setSearchQuery
-}) {
-  // Dynamic Live Analytics Calculations
-  const totalCustomers = customers.length;
-  const totalComplaints = complaints.length;
-  const totalAudited = analytics?.auditSummary?.totalAudited ?? complaints.filter(c => c.invoicePdfUrl || c.invoice_pdf_url || c.parsed_items || typeof c.comparisonScore === 'number' || typeof c.comparison_score === 'number').length;
-  
-  // Calculate average match score from complaints
-  const scores = complaints.map(c => c.comparisonScore ?? c.comparison_score).filter(Number.isFinite);
-  const avgMatchScore = analytics?.auditSummary?.averageScore ?? (scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0);
-  
-  // Fraud flags detected
-  const fraudFlags = analytics?.auditSummary?.mismatches ?? complaints.filter(c => (c.comparisonScore || c.comparison_score || 100) < 60 || c.status === 'FLAGGED').length;
-
-  // Dynamic Branch Metrics breakdown
-  const branchData = serviceCenters.map((sc, i) => {
-    const branchName = sc.name;
-    const branchCusts = customers.filter(c => (c.serviceCenter || c.service_center || 'Downtown Branch') === branchName);
-    const branchComplaints = complaints.filter(c => {
-      const cust = customers.find(cust => cust._id === c.customerId || cust._id === c.customer_id);
-      return cust ? (cust.serviceCenter || cust.service_center) === branchName : true;
-    });
-    const apiBranch = analytics?.serviceCenterPerformance?.find(item => item._id === branchName);
-    const branchAudits = apiBranch?.auditVolume ?? branchComplaints.filter(c => c.invoicePdfUrl || c.invoice_pdf_url || c.parsed_items || typeof c.comparisonScore === 'number' || typeof c.comparison_score === 'number').length;
-    const branchScores = branchComplaints.map(c => c.comparisonScore ?? c.comparison_score).filter(Number.isFinite);
-    const branchScore = apiBranch?.avgScore ?? (branchScores.length > 0 ? Math.round(branchScores.reduce((a, b) => a + b, 0) / branchScores.length) : 0);
-    const branchFlags = branchComplaints.filter(c => (c.comparisonScore || c.comparison_score || 100) < 60).length;
-
-    return {
-      id: sc.id || `sc_${i}`,
-      name: branchName,
-      location: sc.location || sc.city || 'Regional Center',
-      customers: branchCusts.length,
-      audits: branchAudits,
-      score: branchScore,
-      rating: apiBranch?.avgRating ?? null,
-      flags: branchFlags,
-      health: branchFlags === 0 ? 'Healthy' : 'Attention Needed'
-    };
-  });
-
-  const handleBranchClick = (branchName) => {
-    if (setSearchQuery) setSearchQuery(branchName);
-    if (setActiveTab) setActiveTab('customers');
-  };
-
-  return (
-    <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Live Analytics &amp; Executive Reports</h1>
-          <p className="page-subtitle">Real-time branch performance, discrepancy rates, and AI audit metrics from live database</p>
-        </div>
-        <span className="stat-badge badge-green" style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-          <CheckIcon size={14} /> {analytics ? 'Live Supabase Metrics' : 'Live Records'}
-        </span>
-      </div>
-
-      {/* Summary KPIs */}
-      <div className="stats-grid">
-        <div className="stat-card accent-blue">
-          <div className="stat-card-top">
-            <div className="stat-icon blue"><ReportsIcon size={16} /></div>
-            <span className="stat-trend up">Live</span>
-          </div>
-          <div className="stat-label">Total Audited Invoices</div>
-          <div className="stat-value-row">
-            <span className="stat-value">{totalAudited}</span>
-            <span className="stat-badge badge-blue">Real-Time</span>
-          </div>
-          <div className="stat-trend-label">Across {branchData.length} branches</div>
-        </div>
-
-        <div className="stat-card accent-green">
-          <div className="stat-card-top">
-            <div className="stat-icon green"><CpuIcon size={16} /></div>
-            <span className="stat-trend up">Groq AI</span>
-          </div>
-          <div className="stat-label">Average Match Score</div>
-          <div className="stat-value-row">
-            <span className="stat-value" style={{ color: 'var(--green)' }}>{avgMatchScore}%</span>
-            <span className="stat-badge badge-green">{avgMatchScore >= 95 ? 'Excellent' : 'Needs Review'}</span>
-          </div>
-          <div className="stat-trend-label">AI semantic accuracy</div>
-        </div>
-
-        <div className="stat-card accent-coral">
-          <div className="stat-card-top">
-            <div className="stat-icon coral"><ZapIcon size={16} /></div>
-          </div>
-          <div className="stat-label">Fraud Flags Detected</div>
-          <div className="stat-value-row">
-            <span className="stat-value" style={{ color: fraudFlags > 0 ? 'var(--coral)' : 'var(--text-main)' }}>{fraudFlags}</span>
-            <span className={`stat-badge ${fraudFlags > 0 ? 'badge-coral' : 'badge-green'}`}>{fraudFlags > 0 ? 'Review Needed' : 'Clean'}</span>
-          </div>
-          <div className="stat-trend-label">{fraudFlags > 0 ? `${fraudFlags} discrepancies flagged` : 'No discrepancies found'}</div>
-        </div>
-
-        <div className="stat-card accent-amber">
-          <div className="stat-card-top">
-            <div className="stat-icon amber"><CarIcon size={16} /></div>
-            <span className="stat-trend up">Total</span>
-          </div>
-          <div className="stat-label">Total Customers Served</div>
-          <div className="stat-value-row">
-            <span className="stat-value">{totalCustomers}</span>
-            <span className="stat-badge badge-amber">Registered</span>
-          </div>
-          <div className="stat-trend-label">Across all branches</div>
-        </div>
-      </div>
-
-      {/* Branch Breakdown Table */}
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <ReportsIcon size={15} /> Branch Performance Breakdown
-            </h3>
-            <span className="card-subtitle">Click any branch row to view and navigate its customers and vehicle records</span>
-          </div>
-          <span className="stat-badge badge-green">{branchData.length} Active Branches</span>
-        </div>
-
-        <div className="table-container">
-          <table className="custom-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Service Center Branch</th>
-                <th>Location</th>
-                <th>Audits</th>
-                <th>Match Score</th>
-                <th>Customer Rating</th>
-                <th>Customers</th>
-                <th>Fraud Flags</th>
-                <th>Health</th>
-                <th style={{ textAlign: 'right' }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {branchData.map((b, i) => (
-                <tr
-                  key={b.id}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => handleBranchClick(b.name)}
-                >
-                  <td style={{ color: 'var(--text-subtle)', fontSize: '0.75rem', width: '36px' }}>{i + 1}</td>
-                  <td>
-                    <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{b.name}</div>
-                  </td>
-                  <td>
-                    <span className="stat-badge badge-gray">{b.location}</span>
-                  </td>
-                  <td style={{ fontWeight: 600 }}>{b.audits}</td>
-                  <td>
-                    <MiniBar value={b.score} color={b.score >= 95 ? 'var(--green)' : b.score >= 85 ? 'var(--amber)' : 'var(--coral)'} />
-                  </td>
-                  <td><span className={`stat-badge ${b.rating === null ? 'badge-gray' : b.rating >= 4 ? 'badge-green' : 'badge-amber'}`}>{b.rating === null ? 'No ratings' : `★ ${b.rating}/5`}</span></td>
-                  <td style={{ fontWeight: 600 }}>{b.customers}</td>
-                  <td>
-                    {b.flags === 0
-                      ? <span className="stat-badge badge-green">0 flags</span>
-                      : <span className="stat-badge badge-coral">{b.flags} flag{b.flags > 1 ? 's' : ''}</span>
-                    }
-                  </td>
-                  <td>
-                    <span className={`stat-badge ${b.flags === 0 ? 'badge-green' : 'badge-coral'}`}>
-                      {b.flags === 0 ? 'Healthy' : 'Attention Needed'}
-                    </span>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleBranchClick(b.name);
-                      }}
-                      style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
-                    >
-                      View Vehicles <ExternalLinkIcon size={12} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Insight note */}
-      <div style={{
-        padding: '1rem 1.25rem',
-        background: 'var(--blue-bg)',
-        border: '1px solid var(--blue-border)',
-        borderRadius: 'var(--r-md)',
-        display: 'flex',
-        gap: '0.75rem',
-        alignItems: 'flex-start',
-      }}>
-        <div style={{ color: 'var(--blue)', flexShrink: 0, marginTop: '0.1rem' }}><CpuIcon size={16} /></div>
-        <div>
-          <div style={{ fontSize: '0.855rem', fontWeight: 600, color: 'var(--blue)' }}>Live AI Audit Summary</div>
-          <div style={{ fontSize: '0.82rem', color: 'var(--blue)', fontWeight: 500, marginTop: '0.2rem', opacity: 0.85 }}>
-            Currently tracking <strong>{totalCustomers} registered customers</strong> and <strong>{totalAudited} audited complaints</strong> across {branchData.length} active service centers with an average AI match accuracy of <strong>{avgMatchScore}%</strong>.
-          </div>
-        </div>
-      </div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1rem',marginTop:'1rem'}}>
+      <section className="card"><div className="card-header"><div><h3 className="card-title"><MailIcon size={14}/> Communication delivery</h3><span className="card-subtitle">Independent provider results by channel</span></div></div><div style={{padding:'1rem',display:'grid',gap:'.8rem'}}>{channels.map(row=><div key={row.channel} style={{display:'grid',gridTemplateColumns:'90px 1fr 110px',alignItems:'center',gap:'.8rem'}}><strong style={{textTransform:'capitalize'}}>{row.channel}</strong><Bar value={row.deliveryRate} color={row.failed?'#D97706':'#059669'}/><span className="table-muted">{row.delivered}/{row.attempts} delivered</span></div>)}</div></section>
+      <section className="card"><div className="card-header"><div><h3 className="card-title"><ShieldIcon size={14}/> Risk & SLA control</h3><span className="card-subtitle">Cases requiring management attention</span></div></div><div style={{padding:'1rem',display:'grid',gridTemplateColumns:'1fr 1fr',gap:'.8rem'}}>{[['SLA breaches',o.slaBreaches],['Manager review',o.managerReviewPending],['High-risk audits',o.fraudFlags],['Resolved cases',o.resolvedCases]].map(([label,value])=><div key={label} style={{background:'#FAFAFA',border:'1px solid #E4E4E7',padding:'.8rem'}}><div className="table-muted">{label}</div><strong style={{fontSize:'1.35rem'}}>{n(value)}</strong></div>)}</div></section>
     </div>
-  );
+    <section className="card" style={{marginTop:'1rem'}}><div className="card-header"><div><h3 className="card-title"><CpuIcon size={14}/> Dealer ranking</h3><span className="card-subtitle">Comparable metrics for the selected reporting period</span></div></div><div className="table-container"><table className="custom-table"><thead><tr><th>#</th><th>Dealer</th><th>Customers</th><th>Complaints</th><th>Audits</th><th>Completion</th><th>Avg Match</th><th>Rating</th><th>Flags</th><th>Invoice Value</th></tr></thead><tbody>{dealers.map((row,index)=><tr key={row.dealershipId}><td>{index+1}</td><td><strong>{row.name}</strong><div className="table-muted">{row.city||'—'}</div></td><td>{row.customers}</td><td>{row.complaints}</td><td>{row.audits}</td><td><Bar value={row.completionRate}/></td><td>{score(row.averageScore)}</td><td>{row.averageRating==null?'—':`${row.averageRating}/5`}</td><td><span className={`stat-badge ${row.flags?'badge-coral':'badge-green'}`}>{row.flags}</span></td><td>{money(row.invoiceValue)}</td></tr>)}</tbody></table></div></section>
+    <section className="card" style={{marginTop:'1rem'}}><div className="card-header"><div><h3 className="card-title"><ReportsIcon size={14}/> Service-center performance</h3><span className="card-subtitle">No complaint is assigned to a branch without a matching customer record</span></div></div><div className="table-container"><table className="custom-table"><thead><tr><th>Center</th><th>Customers</th><th>Complaints</th><th>Audits</th><th>Completion</th><th>Avg Match</th><th>Rating</th><th>Flags</th><th></th></tr></thead><tbody>{centers.map(row=><tr key={row.id}><td><strong>{row.name}</strong><div className="table-muted">{row.location}</div></td><td>{row.customers}</td><td>{row.complaints}</td><td>{row.audits}</td><td><Bar value={row.completionRate}/></td><td>{score(row.averageScore)}</td><td>{row.averageRating==null?'—':`${row.averageRating}/5`}</td><td>{row.flags}</td><td><button className="btn btn-secondary btn-sm" onClick={()=>openCenter(row.name)}>Vehicles <ExternalLinkIcon size={11}/></button></td></tr>)}</tbody></table></div></section>
+    <div style={{marginTop:'1rem',fontSize:'.72rem',color:'#71717A'}}>Generated {new Date(analytics.generatedAt).toLocaleString('en-IN')}. Match percentage measures complaint-to-invoice agreement; it is not presented as model accuracy.</div>
+  </div>;
 }

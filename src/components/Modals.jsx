@@ -54,7 +54,7 @@ export function CustomerModal({ onClose, custForm, setCustForm, onSubmit, servic
               className="form-input"
               value={custForm.mobile}
               onChange={e => setCustForm({ ...custForm, mobile: e.target.value })}
-              placeholder="e.g. 9876543210"
+              placeholder="e.g. +91 98765 43210"
               required
             />
           </div>
@@ -229,18 +229,17 @@ export function InvoiceModal({ onClose, complaints = [], selectedComplaintId, se
   );
 }
 
-
-
 // Super Admin: Add/Edit Service Center Modal
 export function ServiceCenterModal({ onClose, onSave, editingCenter = null }) {
   const [name, setName] = useState(editingCenter?.name || '');
   const [location, setLocation] = useState(editingCenter?.location || '');
+  const [phone, setPhone] = useState(editingCenter?.phone || '+91 ');
   const [managerEmail, setManagerEmail] = useState(editingCenter?.managerEmail || '');
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!name) return;
-    onSave(name, location, managerEmail, editingCenter?.id);
+    onSave(name, location, managerEmail, editingCenter?.id, phone);
     onClose();
   };
 
@@ -270,6 +269,16 @@ export function ServiceCenterModal({ onClose, onSave, editingCenter = null }) {
           />
         </div>
         <div className="form-group">
+          <label className="form-label">Contact Phone Number</label>
+          <input
+            type="tel"
+            className="form-input"
+            value={phone}
+            onChange={e => setPhone(e.target.value)}
+            placeholder="e.g. +91 98765 43210"
+          />
+        </div>
+        <div className="form-group">
           <label className="form-label">Branch Manager Email (For AI Fraud &amp; Escalation Alerts)</label>
           <input
             type="email"
@@ -292,10 +301,12 @@ export function ServiceCenterModal({ onClose, onSave, editingCenter = null }) {
 }
 
 // Create Staff Account Modal
-export function UserModal({ onClose, userForm, setUserForm, onSubmit, loading = false, error = '' }) {
+export function UserModal({ onClose, userForm, setUserForm, onSubmit, dealerships = [], currentUser, loading = false, error = '' }) {
   const [showPassword, setShowPassword] = useState(false);
+  const isDealer = currentUser?.role === 'DEALER';
+
   return (
-    <Modal title="Create Staff System Account" onClose={onClose}>
+    <Modal title={isDealer ? "Create Service Advisor Account" : "Create Staff System Account"} onClose={onClose}>
       <form onSubmit={onSubmit}>
         {error && (
           <div style={{ padding: '0.65rem 0.85rem', marginBottom: '1rem', background: 'var(--coral-bg)', border: '1px solid var(--coral-border)', color: 'var(--coral)', fontSize: '0.8rem', fontWeight: 600 }}>
@@ -332,9 +343,9 @@ export function UserModal({ onClose, userForm, setUserForm, onSubmit, loading = 
               className="form-input"
               value={userForm.password}
               onChange={e => setUserForm({ ...userForm, password: e.target.value })}
-              placeholder="Minimum 6 characters"
+              placeholder="10+ characters, upper/lowercase and number"
               required
-              minLength={6}
+              minLength={10}
             />
             <button type="button" className="password-toggle" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'}>
               {showPassword ? <EyeOffIcon size={17} /> : <EyeIcon size={17} />}
@@ -342,20 +353,136 @@ export function UserModal({ onClose, userForm, setUserForm, onSubmit, loading = 
           </div>
         </div>
         <div className="form-group">
-          <label className="form-label">Assigned Role</label>
-          <select
-            className="form-select"
-            value={userForm.role}
-            onChange={e => setUserForm({ ...userForm, role: e.target.value })}
-          >
-            <option value="STAFF">👤 Service Advisor (Staff Access)</option>
-            <option value="ADMIN">🛡️ Super Admin (Full Access)</option>
-          </select>
+          <label className="form-label">Phone Number</label>
+          <input
+            type="tel"
+            className="form-input"
+            value={userForm.phone || ''}
+            onChange={e => setUserForm({ ...userForm, phone: e.target.value })}
+            placeholder="e.g. +91 98765 43210"
+          />
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Assigned Role</label>
+            <select
+              className="form-select"
+              value={isDealer ? "STAFF" : userForm.role}
+              onChange={e => !isDealer && setUserForm({ ...userForm, role: e.target.value })}
+              disabled={isDealer}
+            >
+              <option value="STAFF">Service Advisor (Branch Staff)</option>
+              {!isDealer && <option value="DEALER">Dealer (Branch Manager)</option>}
+              {!isDealer && <option value="ADMIN">Super Admin (Full Access)</option>}
+            </select>
+          </div>
+          {userForm.role !== 'ADMIN' && (
+            <div className="form-group">
+              <label className="form-label">Assigned Dealership Branch</label>
+              <select
+                className="form-select"
+                value={isDealer ? (currentUser?.dealershipId || userForm.dealershipId || '') : (userForm.dealershipId || '')}
+                onChange={e => !isDealer && setUserForm({ ...userForm, dealershipId: e.target.value })}
+                disabled={isDealer}
+              >
+                {!isDealer && <option value="">Unassigned (Global / All Branches)</option>}
+                {dealerships.map(d => (
+                  <option key={d._id || d.id} value={d._id || d.id}>
+                    {d.name} ({d.city || 'Branch'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <div className="modal-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={loading}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? "Creating Account…" : "Create Account"}
+            {loading ? "Creating Account…" : isDealer ? "Create Service Advisor" : "Create Account"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// Create / Edit Dealership Modal
+export function DealershipModal({ onClose, onSave, editingDealership = null }) {
+  const [name, setName]                 = useState(editingDealership?.name || '');
+  const [code, setCode]                 = useState(editingDealership?.code || '');
+  const [city, setCity]                 = useState(editingDealership?.city || '');
+  const [managerEmail, setManagerEmail] = useState(editingDealership?.managerEmail || '');
+  const [phone, setPhone]               = useState(editingDealership?.phone || '+91 ');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({ name, code, city, managerEmail, phone }, editingDealership?._id || editingDealership?.id);
+    onClose();
+  };
+
+  return (
+    <Modal title={editingDealership ? "Edit Dealership Branch" : "Register Dealership Branch"} onClose={onClose}>
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label className="form-label">Dealership Name</label>
+          <input
+            type="text"
+            className="form-input"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="e.g. MG Motors — Chennai Central"
+            required
+          />
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Branch Code</label>
+            <input
+              type="text"
+              className="form-input"
+              value={code}
+              onChange={e => setCode(e.target.value.toUpperCase())}
+              placeholder="e.g. DL-CHE-01"
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">City / Location</label>
+            <input
+              type="text"
+              className="form-input"
+              value={city}
+              onChange={e => setCity(e.target.value)}
+              placeholder="e.g. Chennai"
+              required
+            />
+          </div>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Branch Manager Email (Escalation Alerts)</label>
+          <input
+            type="email"
+            className="form-input"
+            value={managerEmail}
+            onChange={e => setManagerEmail(e.target.value)}
+            placeholder="e.g. manager.chennai@autoaudit.in"
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Branch Contact Phone</label>
+          <input
+            type="text"
+            className="form-input"
+            value={phone}
+            onChange={e => setPhone(e.target.value)}
+            placeholder="e.g. +91 98765 43210"
+          />
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn btn-primary">
+            {editingDealership ? "Update Branch" : "Create Dealership Branch"}
           </button>
         </div>
       </form>
@@ -367,11 +494,72 @@ export function EditUserModal({ user, onClose, onSave }) {
   const [name, setName] = useState(user?.name || '');
   const [role, setRole] = useState(user?.role || 'STAFF');
   return (
-    <Modal title="Edit Staff Account" onClose={onClose}>
+    <Modal title="Edit User Account" onClose={onClose}>
       <form onSubmit={(event) => { event.preventDefault(); onSave({ ...user, name, role }); }}>
         <div className="form-group"><label className="form-label">Full Name</label><input className="form-input" value={name} onChange={e => setName(e.target.value)} required /></div>
-        <div className="form-group"><label className="form-label">Assigned Role</label><select className="form-select" value={role} onChange={e => setRole(e.target.value)}><option value="STAFF">Service Advisor</option><option value="ADMIN">Super Admin</option></select></div>
+        <div className="form-group"><label className="form-label">Assigned Role</label>
+          <select className="form-select" value={role} onChange={e => setRole(e.target.value)}>
+            <option value="STAFF">Staff (Service Advisor)</option>
+            <option value="DEALER">Dealer (Branch Manager)</option>
+            <option value="ADMIN">Super Admin (Full Access)</option>
+          </select>
+        </div>
         <div className="modal-actions"><button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" type="submit">Save Changes</button></div>
+      </form>
+    </Modal>
+  );
+}
+
+// Create / Edit Dealer Modal
+export function DealerModal({ onClose, onSave, editingDealer = null }) {
+  const [name, setName]               = useState(editingDealer?.name || '');
+  const [city, setCity]               = useState(editingDealer?.city || '');
+  const [address, setAddress]         = useState(editingDealer?.address || '');
+  const [managerEmail, setMgrEmail]   = useState(editingDealer?.managerEmail || '');
+  const [phone, setPhone]             = useState(editingDealer?.phone || '+91 ');
+  const [code, setCode]               = useState(editingDealer?.code || '');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({ name, city, address, managerEmail, phone, code }, editingDealer?._id || editingDealer?.id);
+    onClose();
+  };
+
+  return (
+    <Modal title={editingDealer ? 'Edit Dealer Branch' : 'Add Dealer Branch'} onClose={onClose}>
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label className="form-label">Dealer / Branch Name</label>
+          <input type="text" className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. MG Motors Chennai" required />
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Branch Code</label>
+            <input type="text" className="form-input" value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="e.g. DL-CHE-01" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">City / Location</label>
+            <input type="text" className="form-input" value={city} onChange={e => setCity(e.target.value)} placeholder="e.g. Chennai" required />
+          </div>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Address</label>
+          <input type="text" className="form-input" value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g. 12, Anna Salai, T. Nagar" />
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Manager Email</label>
+            <input type="email" className="form-input" value={managerEmail} onChange={e => setMgrEmail(e.target.value)} placeholder="e.g. manager@dealer.com" required />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Phone</label>
+            <input type="tel" className="form-input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. +91 98765 43210" />
+          </div>
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn btn-primary">{editingDealer ? 'Update Dealer' : 'Create Dealer'}</button>
+        </div>
       </form>
     </Modal>
   );

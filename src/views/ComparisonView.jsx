@@ -20,6 +20,7 @@ const humanStatus = (status) => (status || 'PROCESSING').replaceAll('_', ' ');
 export default function ComparisonView({ complaints = [], getCustName, selectedComplaintId, onUploadInvoice }) {
   const [selectedId, setSelectedId] = useState(selectedComplaintId || complaints[0]?._id || '');
   const activeComplaint = complaints.find(c => c._id === selectedId) || complaints[0];
+  const pdfReportUrl = activeComplaint?.aiComparison?.reportUrl || "#";
 
   if (!activeComplaint) {
     return <div><div className="page-header"><div><h1 className="page-title">AI Semantic Audit Engine</h1><p className="page-subtitle">Compare customer feedback against every invoice line item.</p></div><button className="btn btn-primary" onClick={onUploadInvoice}><PlusIcon size={14} /> Upload Invoice PDF</button></div><div className="card"><div className="empty-state"><CpuIcon size={28} /><div className="empty-state-title">No audit cases available</div><div className="empty-state-sub">Upload an invoice after the customer submits feedback to start an audit.</div></div></div></div>;
@@ -42,10 +43,20 @@ export default function ComparisonView({ complaints = [], getCustName, selectedC
     <div>
       <div className="page-header">
         <div><h1 className="page-title">AI Semantic Audit Engine</h1><p className="page-subtitle">Evidence-based comparison of customer feedback and invoice line items.</p></div>
-        <div className="page-actions">
+        <div className="page-actions" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <select className="form-select" style={{ width: 'auto', padding: '0.4rem 0.85rem', fontSize: '0.85rem', fontWeight: 700 }} value={activeComplaint._id} onChange={event => setSelectedId(event.target.value)}>
             {complaints.map(complaint => <option key={complaint._id} value={complaint._id}>{complaint.vehicleNumber} — {getCustName ? getCustName(complaint.customerId) : 'Customer'}</option>)}
           </select>
+          <a
+            href={pdfReportUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-primary"
+            download={`audit_report_${activeComplaint.vehicleNumber}.pdf`}
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+          >
+            📥 Download PDF
+          </a>
           <button className="btn btn-primary" onClick={onUploadInvoice}><PlusIcon size={14} /> Upload Invoice</button>
         </div>
       </div>

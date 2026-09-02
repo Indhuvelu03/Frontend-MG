@@ -1,47 +1,94 @@
 import React from 'react';
 import {
   ZapIcon, DashboardIcon, HistoryIcon, CarIcon, LinkIcon,
-  MicIcon, CpuIcon, UsersIcon, ReportsIcon, LogoutIcon, MenuIcon, MailIcon, ShieldIcon
+  MicIcon, CpuIcon, UsersIcon, ReportsIcon, LogoutIcon, MenuIcon, MailIcon, ShieldIcon, BuildingIcon
 } from './Icons';
 
-const NAV_GROUPS = [
+// ── Nav definitions per role ──────────────────────────────────────────────────
+
+const ADMIN_NAV = [
   {
     section: 'OVERVIEW',
     items: [
-      { id: 'dashboard', label: 'Dashboard',       icon: DashboardIcon },
-      { id: 'history',   label: 'Audit History',   icon: HistoryIcon,  badge: { text: 'LIVE', cls: 'badge-green' } },
+      { id: 'network-dashboard',  label: 'Network Overview',    icon: DashboardIcon, badge: { text: 'LIVE', cls: 'badge-green' } },
+      { id: 'dealer-performance', label: 'Dealer Performance',  icon: CpuIcon },
+    ],
+  },
+  {
+    section: 'MANAGEMENT',
+    items: [
+      { id: 'dealers', label: 'Dealers',   icon: BuildingIcon },
+      { id: 'users',   label: 'Users',     icon: UsersIcon },
+      { id: 'reports', label: 'Analytics', icon: ReportsIcon },
+    ],
+  },
+];
+
+const DEALER_NAV = [
+  {
+    section: 'OVERVIEW',
+    items: [
+      { id: 'dashboard', label: 'Dashboard',     icon: DashboardIcon },
+      { id: 'history',   label: 'Audit History', icon: HistoryIcon, badge: { text: 'LIVE', cls: 'badge-green' } },
     ],
   },
   {
     section: 'OPERATIONS',
     items: [
-      { id: 'customers',  label: 'Customers & Vehicles', icon: CarIcon },
-      { id: 'links',      label: 'Feedback Tokens',      icon: LinkIcon },
-      { id: 'complaints', label: 'Voice & Invoices',      icon: MicIcon },
-      { id: 'comparison', label: 'AI Audit Engine',       icon: CpuIcon, badge: { text: '100%', cls: 'badge-green' } },
-      { id: 'email-activity', label: 'Email Activity',    icon: MailIcon },
-      { id: 'manager-review', label: 'Manager Review',     icon: ShieldIcon },
+      { id: 'customers',      label: 'Customers & Vehicles', icon: CarIcon },
+      { id: 'links',          label: 'Feedback Tokens',      icon: LinkIcon },
+      { id: 'complaints',     label: 'Voice & Invoices',      icon: MicIcon },
+      { id: 'comparison',     label: 'AI Audit Engine',       icon: CpuIcon },
+      { id: 'email-activity', label: 'Communications',        icon: MailIcon },
+      { id: 'manager-review', label: 'Manager Review',        icon: ShieldIcon },
     ],
   },
   {
-    section: 'ADMIN',
+    section: 'MANAGEMENT',
     items: [
-      { id: 'users',   label: 'Staff & Users', icon: UsersIcon },
-      { id: 'reports', label: 'Analytics',     icon: ReportsIcon },
+      { id: 'service-centers', label: 'Service Centers', icon: BuildingIcon },
+      { id: 'users',           label: 'Staff / Advisors', icon: UsersIcon },
+      { id: 'reports',         label: 'Analytics & Reports', icon: ReportsIcon },
     ],
   },
 ];
 
-export default function Siderail({ activeTab, setActiveTab, collapsed, onToggle, user, onLogout }) {
+const STAFF_NAV = [
+  {
+    section: 'OVERVIEW',
+    items: [
+      { id: 'dashboard', label: 'Dashboard',     icon: DashboardIcon },
+      { id: 'history',   label: 'Audit History', icon: HistoryIcon, badge: { text: 'LIVE', cls: 'badge-green' } },
+    ],
+  },
+  {
+    section: 'OPERATIONS',
+    items: [
+      { id: 'customers',      label: 'Customers & Vehicles', icon: CarIcon },
+      { id: 'links',          label: 'Feedback Tokens',      icon: LinkIcon },
+      { id: 'complaints',     label: 'Voice & Invoices',      icon: MicIcon },
+      { id: 'comparison',     label: 'AI Audit Engine',       icon: CpuIcon },
+      { id: 'email-activity', label: 'Communications',        icon: MailIcon },
+      { id: 'manager-review', label: 'Manager Review',        icon: ShieldIcon },
+    ],
+  },
+];
+
+export default function Siderail({ activeTab, setActiveTab, collapsed, onToggle, user, onLogout, onSecurity, dealerContext = false }) {
   const initials = (user?.name || 'A').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+  // Pick the correct nav structure for this role
+  const NAV_GROUPS = user?.role === 'ADMIN' && !dealerContext
+    ? ADMIN_NAV
+    : user?.role === 'STAFF'
+      ? STAFF_NAV
+      : DEALER_NAV;
 
   return (
     <aside className={`siderail${collapsed ? ' collapsed' : ''}`}>
 
-      {/* Brand row — hamburger lives here */}
+      {/* Brand row */}
       <div className="siderail-brand">
-        {/* When expanded: logo icon + brand text + collapse button on right */}
-        {/* When collapsed: only hamburger centred in brand slot */}
         <button
           className="siderail-toggle-btn"
           onClick={onToggle}
@@ -56,62 +103,82 @@ export default function Siderail({ activeTab, setActiveTab, collapsed, onToggle,
           <span className="brand-badge">SaaS Enterprise</span>
         </div>
 
-        {/* Close button — only visible when expanded */}
         <button
           className="siderail-collapse-btn"
           onClick={onToggle}
           title="Collapse sidebar"
           aria-label="Collapse sidebar"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
+          <MenuIcon size={16} />
         </button>
       </div>
 
       {/* Navigation */}
-      <nav className="siderail-nav" aria-label="Main Navigation">
-        {NAV_GROUPS.map(group => (
-          <div key={group.section}>
-            <div className="siderail-section-label">
-              <span className="section-label-text">{group.section}</span>
-            </div>
-            {group.items.map(({ id, label, icon: Icon, badge }) => (
-              <button
-                key={id}
-                className={`nav-item${activeTab === id ? ' active' : ''}`}
-                onClick={() => setActiveTab(id)}
-                title={label}
-                aria-label={label}
-                aria-current={activeTab === id ? 'page' : undefined}
-              >
-                <span className="nav-icon-wrap">
-                  <Icon size={17} />
-                </span>
-                <span className="nav-label">{label}</span>
-                {badge && (
-                  <span className={`nav-badge ${badge.cls}`}>{badge.text}</span>
-                )}
-              </button>
-            ))}
+      <nav className="siderail-nav" aria-label="Main navigation">
+        {NAV_GROUPS.map((grp) => (
+          <div key={grp.section} className="nav-group">
+            <div className="nav-section-title">{grp.section}</div>
+            {grp.items.map((item) => {
+              const IconComponent = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  className={`nav-item${isActive ? ' active' : ''}`}
+                  onClick={() => setActiveTab(item.id)}
+                  title={collapsed ? item.label : undefined}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  <span className="nav-item-icon">
+                    <IconComponent size={17} />
+                  </span>
+                  <span className="nav-item-label">{item.label}</span>
+                  {item.badge && !collapsed && (
+                    <span className={`nav-item-badge ${item.badge.cls}`}>
+                      {item.badge.text}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         ))}
       </nav>
 
-      {/* User footer */}
+      {/* Footer / Profile */}
       <div className="siderail-footer">
-        <div className="user-profile-badge">
-          <div className="user-avatar" aria-label={user?.name}>{initials}</div>
-          <div className="user-details">
-            <span className="user-title">{user?.name || 'System Admin'}</span>
-            <span className="user-subtitle">{user?.role || 'Administrator'}</span>
+        <div className="user-profile-widget">
+          <div className="user-avatar" style={{
+            background: user?.role === 'ADMIN' ? 'var(--purple-bg)' : 'var(--blue-bg)',
+            color: user?.role === 'ADMIN' ? 'var(--purple)' : 'var(--blue)'
+          }}>
+            {initials}
           </div>
+
+          <div className="user-info">
+            <div className="user-name">{user?.name || 'Administrator'}</div>
+            <div className="user-role">
+              {user?.role === 'ADMIN'
+                ? (dealerContext ? 'Super Admin · Dealer View' : 'Super Admin')
+                : user?.role === 'DEALER' ? 'Dealer Manager' : 'Service Advisor'}
+            </div>
+          </div>
+
+          <button className="logout-icon-btn" onClick={onSecurity} title="Account security" aria-label="Account security">
+            <ShieldIcon size={16} />
+          </button>
+
+          <button
+            className="logout-icon-btn"
+            onClick={onLogout}
+            title="Sign out of AutoAudit AI"
+            aria-label="Sign out"
+          >
+            <LogoutIcon size={16} />
+          </button>
         </div>
-        <button className="icon-btn logout-btn" onClick={onLogout} title="Sign out" aria-label="Sign out">
-          <LogoutIcon size={15} />
-        </button>
       </div>
+
     </aside>
   );
 }
