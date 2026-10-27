@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { PlusIcon, TrashIcon, EditIcon, BuildingIcon, UsersIcon, CarIcon, CpuIcon } from "../components/Icons";
+import { ExcelDownloadButton } from "../components/ExcelActions";
+import { dateStamp, downloadWorkbook } from "../utils/excel";
 
 const BackIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -181,6 +183,10 @@ export default function DealersView({ dealers=[], customers=[], complaints=[], u
   const filtered = searchQuery
     ? dealers.filter(d => (d.name||"").toLowerCase().includes(searchQuery.toLowerCase()) || (d.city||"").toLowerCase().includes(searchQuery.toLowerCase()) || (d.managerEmail||"").toLowerCase().includes(searchQuery.toLowerCase()))
     : dealers;
+  const exportDealers = () => downloadWorkbook({ fileName:`autoaudit-dealers-${dateStamp()}.xlsx`, sheets:[{ name:'Dealers', columns:[
+    {header:'Dealer Branch',key:'name',width:28},{header:'Code',key:'code',width:18},{header:'City',key:'city',width:20},{header:'Manager Email',key:'managerEmail',width:30},{header:'Phone',key:'phone',width:18,numberFormat:'@'},
+    {header:'Advisors',key:'advisors',width:12},{header:'App Users',key:'appUsers',width:12},{header:'Customers',key:'customers',width:12},{header:'Completed Audits',key:'completed',width:18},{header:'Ongoing',key:'ongoing',width:12},{header:'Status',key:'status',width:12},
+  ], rows:filtered.map(d=>{const id=d._id||d.id;const dealerUsers=users.filter(u=>u.dealershipId===id||u.dealerId===id);const dealerCustomers=customers.filter(c=>c.dealershipId===id||c.dealerId===id);const dealerComplaints=complaints.filter(c=>c.dealershipId===id||dealerCustomers.some(customer=>(customer._id||customer.id)===(c.customerId||c.customer_id)));const completed=dealerComplaints.filter(c=>c.status==='COMPARED'||c.aiComparison).length;return{name:d.name||'',code:d.code||'',city:d.city||'',managerEmail:d.managerEmail||'',phone:d.phone||'',advisors:dealerUsers.filter(u=>u.role==='STAFF').length,appUsers:dealerUsers.length,customers:dealerCustomers.length,completed,ongoing:Math.max(0,dealerCustomers.length-completed),status:d.isActive===false?'Inactive':'Active'};}) }] });
 
   return (
     <div>
@@ -191,6 +197,7 @@ export default function DealersView({ dealers=[], customers=[], complaints=[], u
         </div>
         {isAdmin && (
           <div className="page-actions">
+            <ExcelDownloadButton onDownload={exportDealers} disabled={!filtered.length} />
             <button className="btn btn-primary" onClick={onAddDealer}><PlusIcon size={15} /> Add Dealer Branch</button>
           </div>
         )}

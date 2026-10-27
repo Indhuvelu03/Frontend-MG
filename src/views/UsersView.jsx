@@ -1,5 +1,7 @@
 import React from "react";
 import { PlusIcon, TrashIcon, EditIcon, UsersIcon } from "../components/Icons";
+import { ExcelDownloadButton } from "../components/ExcelActions";
+import { dateStamp, downloadWorkbook } from "../utils/excel";
 
 export default function UsersView({ users=[], user, onAddUser, onEditUser, onDeleteUser, searchQuery="" }) {
   const isAdmin = user?.role === "ADMIN";
@@ -17,6 +19,10 @@ export default function UsersView({ users=[], user, onAddUser, onEditUser, onDel
   const roleLabel = r => r==="ADMIN" ? "Super Admin" : r==="DEALER" ? "Dealer Manager" : "Service Advisor";
 
   const staffCount = users.filter(u => u.role === "STAFF").length;
+  const exportUsers = () => downloadWorkbook({ fileName:`autoaudit-users-${dateStamp()}.xlsx`, sheets:[{ name:'Users', columns:[
+    {header:'Name',key:'name',width:24},{header:'Email',key:'email',width:30},{header:'Phone',key:'phone',width:18,numberFormat:'@'},
+    {header:'Role',key:'role',width:18},{header:'Dealership ID',key:'dealershipId',width:38},{header:'Status',key:'status',width:14},{header:'Joined',key:'joined',width:16,numberFormat:'yyyy-mm-dd'},
+  ], rows:filtered.map(item=>({name:item.name||'',email:item.email||'',phone:item.phone||item.mobile||'',role:roleLabel(item.role),dealershipId:item.dealershipId||item.dealership_id||'',status:item.isActive===false?'Inactive':'Active',joined:item.createdAt||item.created_at?new Date(item.createdAt||item.created_at):''})) }] });
 
   return (
     <div>
@@ -30,6 +36,7 @@ export default function UsersView({ users=[], user, onAddUser, onEditUser, onDel
         </div>
         {canManage && (
           <div className="page-actions">
+            <ExcelDownloadButton onDownload={exportUsers} disabled={!filtered.length} />
             <button className="btn btn-primary" onClick={onAddUser} disabled={isDealer && staffCount >= 3}>
               <PlusIcon size={15}/> {isDealer ? "Add Service Advisor" : "Add User"}
             </button>

@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { MailIcon, SearchIcon, CheckCircleIcon, AlertTriangleIcon, CarIcon } from '../components/Icons';
+import { ExcelDownloadButton } from '../components/ExcelActions';
+import { dateStamp, downloadWorkbook } from '../utils/excel';
 
 const formatDate = (value) => value ? new Intl.DateTimeFormat('en-IN', {
   day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true,
@@ -41,6 +43,9 @@ export default function EmailActivityView({ activities = [], searchQuery = '' })
   const delivered = activities.filter((item) => ['DELIVERED', 'READ'].includes(displayStatus(item))).length;
   const inProgress = activities.filter((item) => ['QUEUED', 'ACCEPTED', 'SENT'].includes(displayStatus(item))).length;
   const failed = activities.filter((item) => ['FAILED', 'UNDELIVERED'].includes(displayStatus(item))).length;
+  const exportActivity = () => downloadWorkbook({ fileName:`autoaudit-communications-${dateStamp()}.xlsx`, sheets:[{ name:'Communications', columns:[
+    {header:'Customer',key:'customer',width:24},{header:'Vehicle Number',key:'vehicle',width:18,numberFormat:'@'},{header:'Stage',key:'stage',width:24},{header:'Channel',key:'channel',width:14},{header:'Recipient',key:'recipient',width:30},{header:'Delivery Status',key:'status',width:18},{header:'Sent At',key:'sentAt',width:22,numberFormat:'yyyy-mm-dd hh:mm'},{header:'Delivered At',key:'deliveredAt',width:22,numberFormat:'yyyy-mm-dd hh:mm'},{header:'Detail',key:'detail',width:42},
+  ], rows:rows.map(item=>({customer:item.customerName||'',vehicle:item.vehicleNumber||'',stage:item.stage||'',channel:displayChannel(item.channel),recipient:item.recipient||'',status:displayStatus(item),sentAt:item.sentAt||item.sent_at?new Date(item.sentAt||item.sent_at):'',deliveredAt:item.deliveredAt?new Date(item.deliveredAt):'',detail:item.detail||''})) }] });
 
   return (
     <div>
@@ -49,6 +54,7 @@ export default function EmailActivityView({ activities = [], searchQuery = '' })
           <h1 className="page-title">Customer Communications</h1>
           <p className="page-subtitle">Independent WhatsApp, SMS and email automation attempts with live provider delivery status.</p>
         </div>
+        <div className="page-actions"><ExcelDownloadButton onDownload={exportActivity} disabled={!rows.length} /></div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>

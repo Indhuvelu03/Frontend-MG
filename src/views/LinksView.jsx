@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { PlusIcon, CopyIcon, ExternalLinkIcon, CheckIcon, TrashIcon, MailIcon } from '../components/Icons';
 import Pagination from '../components/Pagination';
 
-export default function LinksView({ feedbackLinks, customers, getCustName, onNewLink, onDeleteLink, onResendLink, searchQuery }) {
+export default function LinksView({ feedbackLinks, customers, getCustName, onNewLink, onDeleteLink, onResendLink, onRenewLink, searchQuery }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [copiedId, setCopiedId] = useState(null);
   const itemsPerPage = 6;
@@ -64,6 +64,9 @@ export default function LinksView({ feedbackLinks, customers, getCustName, onNew
                   {currentLinks.map((l, idx) => {
                     const publicUrl = getFullPublicUrl(l.token);
                     const isCopied = copiedId === (l._id || l.id);
+                    const expiresAt = l.expiresAt || l.expires_at;
+                    const isExpired = l.status === 'EXPIRED' || (l.status === 'PENDING' && expiresAt && new Date(expiresAt) <= new Date());
+                    const emailSent = Boolean(l.sentVia?.email);
                     return (
                       <tr key={l._id || l.id || idx}>
                         <td style={{ color: 'var(--text-subtle)', fontSize: '0.75rem', width: '40px' }}>
@@ -79,8 +82,8 @@ export default function LinksView({ feedbackLinks, customers, getCustName, onNew
                           <span className="token-pill">{(l.token || '').substring(0, 16)}…</span>
                         </td>
                         <td>
-                          <span className={`stat-badge ${l.status === 'SUBMITTED' ? 'badge-green' : 'badge-amber'}`}>
-                            {l.status === 'SUBMITTED' ? '● Submitted' : '○ Pending'}
+                          <span className={`stat-badge ${l.status === 'SUBMITTED' ? 'badge-green' : isExpired ? 'badge-coral' : 'badge-amber'}`}>
+                            {l.status === 'SUBMITTED' ? '● Submitted' : isExpired ? '● Expired' : '○ Pending'}
                           </span>
                         </td>
                         <td style={{ maxWidth: '340px' }}>
@@ -103,7 +106,7 @@ export default function LinksView({ feedbackLinks, customers, getCustName, onNew
                         </td>
                         <td>
                           <div style={{ display: 'flex', gap: '0.35rem' }}>
-                            <button
+                            {!isExpired && <button
                               className={`btn btn-sm ${isCopied ? 'btn-primary' : 'btn-secondary'}`}
                               onClick={() => handleCopyLink(l.token, l._id || l.id)}
                               style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
@@ -118,8 +121,8 @@ export default function LinksView({ feedbackLinks, customers, getCustName, onNew
                                   <CopyIcon size={13} /> Copy Link
                                 </>
                               )}
-                            </button>
-                            <a
+                            </button>}
+                            {!isExpired && <a
                               href={publicUrl}
                               target="_blank"
                               rel="noreferrer"
@@ -128,8 +131,9 @@ export default function LinksView({ feedbackLinks, customers, getCustName, onNew
                               title="Open public link in new tab"
                             >
                               Open <ExternalLinkIcon size={13} />
-                            </a>
-                            {l.status === 'PENDING' && onResendLink && <button className="btn btn-secondary btn-sm" onClick={() => onResendLink(l._id || l.id)} style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem' }} title="Resend invite email"><MailIcon size={13} /> Resend</button>}
+                            </a>}
+                            {l.status === 'PENDING' && !isExpired && !emailSent && onResendLink && <button className="btn btn-secondary btn-sm" onClick={() => onResendLink(l._id || l.id)} style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem' }} title="Send feedback invitation email"><MailIcon size={13} /> Send email</button>}
+                            {isExpired && onRenewLink && <button className="btn btn-primary btn-sm" onClick={() => onRenewLink(l._id || l.id)} style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem' }} title="Create and send a fresh 72-hour feedback link"><PlusIcon size={13} /> Renew 72h</button>}
                             {onDeleteLink && (
                               <button
                                 className="btn btn-secondary btn-sm"

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { PlusIcon, TrashIcon, EditIcon, CarIcon, MicIcon, ExternalLinkIcon } from '../components/Icons';
 import Pagination from '../components/Pagination';
+import { ExcelDownloadButton, ExcelTemplateButton, ExcelUploadButton } from '../components/ExcelActions';
+import { CUSTOMER_EXCEL_COLUMNS, dateStamp, downloadCustomerTemplate, downloadWorkbook, readCustomerWorkbook } from '../utils/excel';
 
 export default function CustomersView({
   customers = [],
@@ -8,6 +10,9 @@ export default function CustomersView({
   onEditCustomer,
   onDeleteCustomer,
   onViewCustomerComplaints,
+  onImportCustomers,
+  onExcelError,
+  excelImporting = false,
   searchQuery = ''
 }) {
   const safeCustomers = Array.isArray(customers) ? customers : [];
@@ -17,6 +22,27 @@ export default function CustomersView({
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentCustomers = safeCustomers.slice(indexOfFirstItem, indexOfLastItem);
+  const exportCustomers = () => downloadWorkbook({
+    fileName: `autoaudit-customers-${dateStamp()}.xlsx`,
+    sheets: [{
+      name: 'Customers',
+      columns: CUSTOMER_EXCEL_COLUMNS,
+      rows: safeCustomers.map(customer => ({
+        name: customer.name || '',
+        mobile: customer.mobile || customer.phone || '',
+        email: customer.email || '',
+        vehicleNumber: customer.vehicleNumber || customer.vehicle_number || '',
+        vehicleModel: customer.vehicleModel || customer.vehicle_model || '',
+        serviceCenter: customer.serviceCenter || customer.service_center || '',
+        serviceDate: customer.serviceDate || customer.service_date ? new Date(customer.serviceDate || customer.service_date) : '',
+      })),
+    }],
+  });
+  const uploadWorkbook = async file => {
+    const parsed = await readCustomerWorkbook(file);
+    if (parsed.errors.length) throw new Error(`${parsed.errors.slice(0, 4).join(' | ')}${parsed.errors.length > 4 ? ` | ${parsed.errors.length - 4} more errors` : ''}`);
+    await onImportCustomers?.(parsed.rows, file.name);
+  };
 
   return (
     <div>
@@ -28,9 +54,14 @@ export default function CustomersView({
             {searchQuery && <span className="search-hint">Filtering: "{searchQuery}" — {safeCustomers.length} result{safeCustomers.length !== 1 ? 's' : ''}</span>}
           </p>
         </div>
-        <button className="btn btn-primary" onClick={onNewCustomer}>
-          <PlusIcon size={14} /> New Customer
-        </button>
+        <div className="page-actions">
+          <ExcelDownloadButton onDownload={exportCustomers} disabled={!safeCustomers.length} />
+          <ExcelTemplateButton onDownload={downloadCustomerTemplate} />
+          <ExcelUploadButton onUpload={uploadWorkbook} onError={onExcelError} disabled={excelImporting} />
+          <button className="btn btn-primary" onClick={onNewCustomer} disabled={excelImporting}>
+            <PlusIcon size={14} /> {excelImporting ? 'Importing…' : 'New Customer'}
+          </button>
+        </div>
       </div>
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>

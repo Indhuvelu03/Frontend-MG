@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { ZapIcon, MicIcon, CpuIcon } from '../components/Icons';
 import Pagination from '../components/Pagination';
+import { ExcelDownloadButton } from '../components/ExcelActions';
+import { dateStamp, downloadWorkbook } from '../utils/excel';
 
 export default function HistoryView({ historyLogs, complaints = [], customers = [], getCustName, searchQuery }) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -58,6 +60,9 @@ export default function HistoryView({ historyLogs, complaints = [], customers = 
   const toggleExpand = (id) => {
     setExpandedAuditId(prev => (prev === id ? null : id));
   };
+  const exportHistory = () => downloadWorkbook({ fileName:`autoaudit-audit-history-${dateStamp()}.xlsx`, sheets:[{ name:'Audit History', columns:[
+    {header:'Timestamp',key:'timestamp',width:22},{header:'Vehicle Number',key:'vehicleNumber',width:18,numberFormat:'@'},{header:'Customer',key:'customerName',width:24},{header:'Voice Status',key:'voiceStatus',width:18},{header:'Invoice Status',key:'pdfStatus',width:18},{header:'Match Score',key:'matchScore',width:14,numberFormat:'0"%"'},{header:'Conclusion',key:'conclusion',width:20},{header:'Performed By',key:'performedBy',width:30},{header:'Transcript',key:'transcript',width:58},{header:'Analysis',key:'analysis',width:58},
+  ], rows:filteredSessions.map(item=>({timestamp:item.timestamp,vehicleNumber:item.vehicleNumber,customerName:item.customerName,voiceStatus:item.voiceStatus,pdfStatus:item.pdfStatus,matchScore:item.matchScore,conclusion:item.matchConclusion,performedBy:item.performedBy,transcript:item.transcript||'',analysis:item.analysis||''})) }] });
 
   return (
     <div>
@@ -72,6 +77,7 @@ export default function HistoryView({ historyLogs, complaints = [], customers = 
           </p>
         </div>
         <div className="page-actions">
+          <ExcelDownloadButton onDownload={exportHistory} disabled={!filteredSessions.length} />
           <span className="stat-badge badge-green">● Live Audit Cases</span>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700 }}>
             {filteredSessions.length} customer case{filteredSessions.length !== 1 ? 's' : ''}

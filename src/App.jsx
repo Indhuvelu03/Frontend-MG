@@ -25,10 +25,13 @@ import DealershipsView     from './views/DealershipsView';
 import DealersView         from './views/DealersView';
 import DealerPerformanceView from './views/DealerPerformanceView';
 import ServiceCentersView   from './views/ServiceCentersView';
+import { dateStamp, downloadWorkbook } from './utils/excel';
 
 // Icons
 import { ZapIcon, ShieldIcon, UserIcon, MailIcon, InfoIcon, AlertTriangleIcon, EyeIcon, EyeOffIcon } from './components/Icons';
-const rawApiBase = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000/api';
+// Use the same origin by default. This works for both the backend-served
+// dashboard and Vite's /api development proxy without triggering CORS.
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || '/api';
 const API_BASE = rawApiBase.endsWith('/api') ? rawApiBase : `${rawApiBase.replace(/\/$/, '')}/api`;
 
 function LoginScreen({ onLogin, onVerifyMfa, onRequestReset }) {
@@ -230,6 +233,7 @@ export default function App() {
   const [userModalLoading, setUserModalLoading] = useState(false);
   const [userModalError, setUserModalError]     = useState('');
   const [customerModalLoading, setCustomerModalLoading] = useState(false);
+  const [customerImportLoading, setCustomerImportLoading] = useState(false);
   const [emailActivities, setEmailActivities] = useState([]);
   const [managerCases, setManagerCases] = useState([]);
   const [analytics, setAnalytics] = useState(null);
@@ -502,6 +506,56 @@ export default function App() {
     }
   };
 
+  const handleImportCustomers = async (rows, fileName) => {
+    if (user?.role === 'ADMIN' && !effectiveDealerId) {
+      showSnackbar('Select a dealer from Scope or open a dealer workspace before importing customers.', 'error');
+      return;
+    }
+    requestConfirmation(
+      'Import customer workbook',
+      `Import ${rows.length} customer record${rows.length === 1 ? '' : 's'} from ${fileName}? Customers will be added to the selected dealer only; no feedback invitations will be sent automatically.`,
+      `Import ${rows.length} customer${rows.length === 1 ? '' : 's'}`,
+      async () => {
+        setCustomerImportLoading(true);
+        try {
+          const response = await fetch(`${API_BASE}/customers/import`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ dealershipId: effectiveDealerId || undefined, customers: rows }),
+          });
+          const result = await response.json();
+          if (!response.ok || !result.success) throw new Error(result.message || 'Customer import failed');
+          const summary = result.data?.summary || { imported: 0, failed: 0, total: rows.length };
+          if (result.data?.failed?.length) {
+            await downloadWorkbook({
+              fileName: `autoaudit-customer-import-errors-${dateStamp()}.xlsx`,
+              sheets: [{
+                name: 'Import Errors',
+                columns: [
+                  { header: 'Workbook Row', key: 'row', width: 16 },
+                  { header: 'Vehicle Number', key: 'vehicleNumber', width: 20 },
+                  { header: 'Error', key: 'message', width: 62 },
+                ],
+                rows: result.data.failed,
+              }],
+            });
+          }
+          await fetchBackendData();
+          showSnackbar(
+            summary.failed
+              ? `Imported ${summary.imported} of ${summary.total} customers. An Excel error report was downloaded for ${summary.failed} failed row${summary.failed === 1 ? '' : 's'}.`
+              : `Imported ${summary.imported} customer${summary.imported === 1 ? '' : 's'}. No feedback invitations were sent.`,
+            summary.failed ? 'info' : 'success',
+          );
+        } catch (error) {
+          showSnackbar(`Unable to import customers: ${error.message}`, 'error');
+        } finally {
+          setCustomerImportLoading(false);
+        }
+      },
+    );
+  };
+
   const handleVerifyMfa = async (mfaToken, code) => {
     try {
       const res = await fetch(`${API_BASE}/auth/mfa/verify-login`, {
@@ -562,7 +616,7 @@ export default function App() {
       showSnackbar(`Unable to create feedback link: ${error.message}`, 'error');
       return;
     }
-    addLog({ action: 'FEEDBACK_LINK_CREATED', target: 'New Feedback Token', badgeClass: 'badge-amber', badgeText: 'TOKEN ISSUED', description: 'Generated secure public feedback link valid for 7 days.' });
+    addLog({ action: 'FEEDBACK_LINK_CREATED', target: 'New Feedback Token', badgeClass: 'badge-amber', badgeText: 'TOKEN ISSUED', description: 'Generated secure public feedback link ready for email delivery.' });
     setShowLinkModal(false);
   };
 
@@ -611,11 +665,24 @@ export default function App() {
 
   const handleResendLink = async (feedbackLinkId) => {
     try {
-      const res = await fetch(`${API_BASE}/feedback-links/send`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ feedbackLinkId }) });
+      const res = await fetch(`${API_BASE}/feedback-links/send`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ feedbackLinkId, channels: ['email'] }) });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || 'Unable to queue invite');
-      showSnackbar('Feedback invitation queued for resend.', 'success');
+      showSnackbar('Feedback invitation email queued for delivery.', 'success');
       setTimeout(fetchBackendData, 1000);
+    } catch (error) { showSnackbar(error.message, 'error'); }
+  };
+
+  const handleRenewLink = async (feedbackLinkId) => {
+    try {
+      const res = await fetch(`${API_BASE}/feedback-links/${feedbackLinkId}/renew`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Unable to renew feedback link');
+      setFeedbackLinks(prev => [data.data, ...prev]);
+      showSnackbar('A new feedback link is active for 72 hours and has been sent.', 'success');
     } catch (error) { showSnackbar(error.message, 'error'); }
   };
 
@@ -1043,10 +1110,13 @@ export default function App() {
           onEditCustomer={handleEditCustomer}
           onDeleteCustomer={handleDeleteCustomer}
           onViewCustomerComplaints={(c) => { setSearchQuery(c.vehicleNumber || c.vehicle_number || c.name); setActiveTab('complaints'); }}
+          onImportCustomers={handleImportCustomers}
+          onExcelError={(message) => showSnackbar(message, 'error')}
+          excelImporting={customerImportLoading}
           searchQuery={q}
         />
       );
-      case 'links':      return <LinksView feedbackLinks={filteredLinks} customers={scopedCustomers} getCustName={getCustName} onNewLink={() => setShowLinkModal(true)} onDeleteLink={handleDeleteLink} onResendLink={handleResendLink} searchQuery={q} />;
+      case 'links':      return <LinksView feedbackLinks={filteredLinks} customers={scopedCustomers} getCustName={getCustName} onNewLink={() => setShowLinkModal(true)} onDeleteLink={handleDeleteLink} onResendLink={handleResendLink} onRenewLink={handleRenewLink} searchQuery={q} />;
       case 'complaints': return (
         <ComplaintsView
           complaints={filteredComplaints}
