@@ -28,7 +28,7 @@ import ServiceCentersView   from './views/ServiceCentersView';
 import { dateStamp, downloadWorkbook } from './utils/excel';
 
 // Icons
-import { ZapIcon, ShieldIcon, UserIcon, MailIcon, InfoIcon, AlertTriangleIcon, EyeIcon, EyeOffIcon } from './components/Icons';
+import { ZapIcon, ShieldIcon, UserIcon, MailIcon, InfoIcon, AlertTriangleIcon, EyeIcon, EyeOffIcon, CarIcon, MicIcon, CpuIcon, CheckCircleIcon } from './components/Icons';
 // Use the same origin by default. This works for both the backend-served
 // dashboard and Vite's /api development proxy without triggering CORS.
 const rawApiBase = import.meta.env.VITE_API_BASE_URL || '/api';
@@ -135,6 +135,97 @@ function LoginScreen({ onLogin, onVerifyMfa, onRequestReset }) {
   );
 }
 
+function HomeScreen() {
+  return (
+    <div className="home-page">
+      <header className="home-header">
+        <a className="home-brand" href="/" aria-label="AutoAudit AI home">
+          <span className="home-brand-mark"><ZapIcon size={19} /></span>
+          <span>AutoAudit AI</span>
+        </a>
+        <nav className="home-nav" aria-label="Main navigation">
+          <a href="#how-it-works">How it works</a>
+          <a href="#outcomes">Outcomes</a>
+          <a className="home-login-link" href="/login">Sign In <span aria-hidden="true">→</span></a>
+        </nav>
+      </header>
+
+      <main>
+        <section className="home-hero">
+          <img className="home-hero-image" src="/assets/autoaudit-service-audit-hero.png" alt="A service advisor and mechanic reviewing a vehicle brake inspection" />
+          <div className="home-hero-scrim" />
+          <div className="home-hero-content">
+            <div className="home-hero-copy">
+              <p className="home-eyebrow home-eyebrow-light">VEHICLE SERVICE INTELLIGENCE</p>
+              <h1>Service quality<br />you can <em>prove.</em></h1>
+              <p className="home-lead">Bring every customer request, invoice, and service outcome into one accountable audit trail.</p>
+              <div className="home-actions">
+                <a className="home-primary-action" href="/login">Enter AutoAudit <span aria-hidden="true">→</span></a>
+                <a className="home-secondary-action" href="#how-it-works">Explore the workflow</a>
+              </div>
+            </div>
+            <div className="home-hero-proof">
+              <div><strong>Voice to insight</strong><span>Multilingual customer feedback</span></div>
+              <div><strong>Invoice to evidence</strong><span>OCR-backed service verification</span></div>
+            </div>
+          </div>
+          <div className="home-audit-chip" aria-label="Example audit result">
+            <span className="home-preview-dot" />
+            <div><small>QUALITY AUDIT</small><strong>94% service match</strong></div>
+            <span className="home-chip-verdict">VERIFIED</span>
+          </div>
+        </section>
+
+        <section id="how-it-works" className="home-features">
+          <div className="home-section-intro">
+            <p className="home-eyebrow">A SIMPLE, TRACEABLE WORKFLOW</p>
+            <h2>Nothing gets lost between the service bay and the customer.</h2>
+            <p>One operational workflow that makes service teams faster, managers more confident, and customers heard.</p>
+          </div>
+          <div className="home-feature-grid">
+            <article className="home-feature-card">
+              <span className="home-feature-icon"><MicIcon size={22} /></span>
+              <p className="home-feature-number">01</p>
+              <h3>Capture the request</h3>
+              <p>Collect voice or written service requests through a secure feedback link.</p>
+            </article>
+            <article className="home-feature-card">
+              <span className="home-feature-icon"><CarIcon size={22} /></span>
+              <p className="home-feature-number">02</p>
+              <h3>Upload the invoice</h3>
+              <p>Extract completed service work from the final invoice PDF with OCR.</p>
+            </article>
+            <article className="home-feature-card">
+              <span className="home-feature-icon"><CpuIcon size={22} /></span>
+              <p className="home-feature-number">03</p>
+              <h3>Audit the outcome</h3>
+              <p>Match service requests against billed work and flag exceptions for review.</p>
+            </article>
+          </div>
+        </section>
+
+        <section id="outcomes" className="home-outcomes">
+          <div>
+            <p className="home-eyebrow">THE AUDIT THAT MOVES WORK FORWARD</p>
+            <h2>See what was requested, what was billed, and what needs attention.</h2>
+          </div>
+          <div className="home-outcome-panel">
+            <div className="home-outcome-head"><span>Honda City · KA 01 AB 1234</span><b>94% MATCH</b></div>
+            <div className="home-outcome-row"><span>Brake noise inspection</span><strong><CheckCircleIcon size={15} /> Verified</strong></div>
+            <div className="home-outcome-row"><span>Engine oil replacement</span><strong><CheckCircleIcon size={15} /> Verified</strong></div>
+            <div className="home-outcome-row home-outcome-review"><span>AC cooling concern</span><strong>Needs review</strong></div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="home-footer">
+        <span>© {new Date().getFullYear()} AutoAudit AI</span>
+        <span>Service transparency, made operational.</span>
+      </footer>
+    </div>
+  );
+}
+
 function ResetPasswordScreen({ resetToken }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -157,7 +248,7 @@ function ResetPasswordScreen({ resetToken }) {
   return <div className="login-screen"><div className="login-card">
     <div className="login-brand"><div className="login-logo"><ShieldIcon size={20} /></div><h1 className="login-title">Create a new password</h1><p className="login-subtitle">This secure link works only once.</p></div>
     {error && <div style={{ padding: '.75rem', marginBottom: '1rem', background: 'var(--coral-bg)', color: 'var(--coral)' }}>{error}</div>}
-    {message ? <><div style={{ padding: '.75rem', marginBottom: '1rem', background: 'var(--green-bg)', color: 'var(--green)' }}>{message}</div><a href="/" className="btn btn-primary btn-full">Return to Sign In</a></> : <form onSubmit={submit}>
+    {message ? <><div style={{ padding: '.75rem', marginBottom: '1rem', background: 'var(--green-bg)', color: 'var(--green)' }}>{message}</div><a href="/login" className="btn btn-primary btn-full">Return to Sign In</a></> : <form onSubmit={submit}>
       <div className="form-group"><label className="form-label">New password</label><input type="password" className="form-input" minLength={10} value={password} onChange={event => setPassword(event.target.value)} required /></div>
       <div className="form-group"><label className="form-label">Confirm password</label><input type="password" className="form-input" minLength={10} value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} required /></div>
       <p className="table-muted">At least 10 characters with uppercase, lowercase and a number.</p><button className="btn btn-primary btn-full" disabled={loading}>{loading ? 'Updating…' : 'Update Password'}</button>
@@ -794,8 +885,9 @@ export default function App() {
     return <PublicFeedbackView token={publicToken} customers={customers} feedbackLinks={feedbackLinks} />;
   }
 
-  // ── Render login if not authed ───────────────────────────────────────────────
-  if (!token) return <LoginScreen onLogin={handleLogin} onVerifyMfa={handleVerifyMfa} onRequestReset={handleRequestPasswordReset} />;
+  // ── Public home and sign-in routes ───────────────────────────────────────────
+  if (!token && path === '/login') return <LoginScreen onLogin={handleLogin} onVerifyMfa={handleVerifyMfa} onRequestReset={handleRequestPasswordReset} />;
+  if (!token) return <HomeScreen />;
 
   // ── Live search & dealer scoping ─────────────────────────────────────────────
   const q = searchQuery.toLowerCase().trim();
